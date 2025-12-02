@@ -92,12 +92,17 @@ class ValidationResult:
 
 # Expected counts from Sci Data paper (Gibson et al., 2024)
 # doi:10.1038/s41597-024-03819-7
+# Note: BOLD/DWI/sbref counts are sessions with at least one file of that type
+# (the raw file counts are higher due to multiple runs/acquisitions per session)
 EXPECTED_COUNTS = {
     "subjects": 230,
     "sessions": 902,
     "t1w_series": 441,
     "t2w_series": 447,
     "flair_series": 235,
+    "bold_series": 850,  # Sessions with BOLD fMRI
+    "dwi_series": 613,  # Sessions with diffusion imaging
+    "sbref_series": 88,  # Sessions with single-band reference
     "lesion_masks": 230,  # All subjects have lesion masks
 }
 
@@ -193,9 +198,7 @@ def _check_series_count(
     )
 
 
-def _check_nifti_integrity(
-    bids_root: Path, sample_size: int = 10
-) -> ValidationCheck:
+def _check_nifti_integrity(bids_root: Path, sample_size: int = 10) -> ValidationCheck:
     """Spot-check NIfTI files for corruption using nibabel."""
     try:
         import nibabel as nib
@@ -304,7 +307,7 @@ def validate_arc_download(
     1. Required BIDS files exist
     2. Subject count matches expected (~230)
     3. participants.tsv has enough entries
-    4. Series counts match Sci Data paper (T1w, T2w, FLAIR, lesion)
+    4. Series counts match expected (T1w, T2w, FLAIR, BOLD, DWI, sbref, lesion)
     5. Sample NIfTI files are loadable
     6. (Optional) BIDS validator passes
 
@@ -338,13 +341,12 @@ def validate_arc_download(
     # Series counts from Sci Data paper
     result.add(_check_series_count(bids_root, "t1w", "*_T1w.nii.gz", "t1w_series"))
     result.add(_check_series_count(bids_root, "t2w", "*_T2w.nii.gz", "t2w_series"))
+    result.add(_check_series_count(bids_root, "flair", "*_FLAIR.nii.gz", "flair_series"))
+    result.add(_check_series_count(bids_root, "bold", "*_bold.nii.gz", "bold_series"))
+    result.add(_check_series_count(bids_root, "dwi", "*_dwi.nii.gz", "dwi_series"))
+    result.add(_check_series_count(bids_root, "sbref", "*_sbref.nii.gz", "sbref_series"))
     result.add(
-        _check_series_count(bids_root, "flair", "*_FLAIR.nii.gz", "flair_series")
-    )
-    result.add(
-        _check_series_count(
-            bids_root, "lesion", "*_desc-lesion_mask.nii.gz", "lesion_masks"
-        )
+        _check_series_count(bids_root, "lesion", "*_desc-lesion_mask.nii.gz", "lesion_masks")
     )
 
     # NIfTI integrity check
