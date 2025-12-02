@@ -6,16 +6,20 @@ Hugging Face Dataset.
 
 Dataset info:
 - OpenNeuro ID: ds004884
-- Description: Structural MRI and lesion masks for aphasia patients
+- Description: Multimodal neuroimaging dataset for aphasia patients
 - License: CC0 (Public Domain)
 - URL: https://openneuro.org/datasets/ds004884
 
 The ARC dataset contains:
 - 230 chronic stroke patients with aphasia
 - 902 scanning sessions (longitudinal)
-- T1-weighted structural MRI scans
-- T2-weighted structural MRI scans
-- Expert-drawn lesion segmentation masks
+- T1-weighted structural MRI scans (447)
+- T2-weighted structural MRI scans (441)
+- FLAIR structural MRI scans (235)
+- BOLD fMRI scans (1,402)
+- Diffusion-weighted imaging (2,089)
+- Single-band reference images (322)
+- Expert-drawn lesion segmentation masks (228)
 - Demographic and clinical metadata (age, sex, WAB-AQ scores)
 """
 
@@ -53,7 +57,10 @@ def build_arc_file_table(bids_root: Path) -> pd.DataFrame:
     The function:
     1. Reads participants.tsv for demographics (age, sex, WAB scores)
     2. For each subject, iterates over all sessions (ses-*)
-    3. For each session, finds T1w, T2w, and FLAIR images in anat/
+    3. For each session, finds ALL modalities:
+       - anat/: T1w, T2w, FLAIR
+       - func/: BOLD fMRI
+       - dwi/: DWI, sbref
     4. Finds lesion masks in derivatives/lesion_masks/sub-*/ses-*/anat/
     5. Returns a DataFrame ready for HF Dataset conversion
 
@@ -67,6 +74,9 @@ def build_arc_file_table(bids_root: Path) -> pd.DataFrame:
             - t1w (str | None): Absolute path to T1-weighted NIfTI
             - t2w (str | None): Absolute path to T2-weighted NIfTI
             - flair (str | None): Absolute path to FLAIR NIfTI
+            - bold (str | None): Absolute path to BOLD fMRI NIfTI
+            - dwi (str | None): Absolute path to diffusion-weighted NIfTI
+            - sbref (str | None): Absolute path to single-band reference NIfTI
             - lesion (str | None): Absolute path to lesion mask NIfTI
             - age_at_stroke (float): Subject age at stroke
             - sex (str): Subject sex (M/F)
@@ -127,10 +137,17 @@ def build_arc_file_table(bids_root: Path) -> pd.DataFrame:
         for session_dir in session_dirs:
             session_id = session_dir.name  # e.g., "ses-1"
 
-            # Find modalities within this session
-            t1w_path = _find_nifti_in_session(session_dir, "*_T1w.nii.gz")
-            t2w_path = _find_nifti_in_session(session_dir, "*_T2w.nii.gz")
-            flair_path = _find_nifti_in_session(session_dir, "*_FLAIR.nii.gz")
+            # Find structural modalities in anat/
+            t1w_path = _find_nifti_in_session(session_dir / "anat", "*_T1w.nii.gz")
+            t2w_path = _find_nifti_in_session(session_dir / "anat", "*_T2w.nii.gz")
+            flair_path = _find_nifti_in_session(session_dir / "anat", "*_FLAIR.nii.gz")
+
+            # Find functional modalities in func/
+            bold_path = _find_nifti_in_session(session_dir / "func", "*_bold.nii.gz")
+
+            # Find diffusion modalities in dwi/
+            dwi_path = _find_nifti_in_session(session_dir / "dwi", "*_dwi.nii.gz")
+            sbref_path = _find_nifti_in_session(session_dir / "dwi", "*_sbref.nii.gz")
 
             # Find lesion mask in derivatives for this session
             lesion_session_dir = (
@@ -148,6 +165,9 @@ def build_arc_file_table(bids_root: Path) -> pd.DataFrame:
                 "t1w": t1w_path,
                 "t2w": t2w_path,
                 "flair": flair_path,
+                "bold": bold_path,
+                "dwi": dwi_path,
+                "sbref": sbref_path,
                 "lesion": lesion_path,
                 "age_at_stroke": age_at_stroke,
                 "sex": sex,
@@ -168,6 +188,9 @@ def get_arc_features() -> Features:
         - t1w: T1-weighted structural MRI (Nifti)
         - t2w: T2-weighted structural MRI (Nifti, nullable)
         - flair: FLAIR structural MRI (Nifti, nullable)
+        - bold: BOLD fMRI 4D time-series (Nifti, nullable)
+        - dwi: Diffusion-weighted imaging (Nifti, nullable)
+        - sbref: Single-band reference image (Nifti, nullable)
         - lesion: Expert-drawn lesion mask (Nifti)
         - age_at_stroke: Age at time of stroke (float)
         - sex: Biological sex (M/F)
@@ -184,6 +207,9 @@ def get_arc_features() -> Features:
             "t1w": Nifti(),
             "t2w": Nifti(),
             "flair": Nifti(),
+            "bold": Nifti(),
+            "dwi": Nifti(),
+            "sbref": Nifti(),
             "lesion": Nifti(),
             "age_at_stroke": Value("float32"),
             "sex": Value("string"),
