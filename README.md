@@ -31,7 +31,7 @@ Convert ARC from BIDS → HuggingFace Dataset that:
 
 ### Data Flow
 
-```
+```text
 OpenNeuro ds004884 (BIDS)
         │
         ▼ AWS S3 or OpenNeuro CLI
@@ -111,23 +111,25 @@ openneuro download ds004884 data/openneuro/ds004884
 
 ## Project Structure
 
-```
+```text
 arc-aphasia-bids/
 ├── src/arc_bids/
 │   ├── __init__.py      # Package exports
 │   ├── core.py          # Generic BIDS→HF logic
 │   ├── config.py        # ARC configuration
-│   ├── arc.py           # ARC builder (STUB - to implement)
+│   ├── arc.py           # ARC dataset builder
 │   └── cli.py           # Typer CLI
 ├── scripts/
 │   └── download_arc.sh  # Download script
 ├── tests/
+│   ├── test_arc.py          # ARC module tests
 │   ├── test_core_nifti.py   # Core functionality tests
 │   └── test_cli_skeleton.py # CLI tests
 ├── data/                # (gitignored) Local data
 │   └── openneuro/ds004884/
 ├── pyproject.toml       # PEP 621 project config
 ├── mypy.ini             # Strict typing config
+├── CITATION.cff         # Citation metadata
 └── README.md
 ```
 
@@ -210,6 +212,42 @@ uv run ruff check .
 
 # Type check (strict everywhere)
 uv run mypy src tests
+```
+
+## Citation
+
+If you use the ARC dataset, please cite both the paper and the dataset:
+
+### Paper
+
+> Gibson, M., Newman-Norlund, R., Bonilha, L., Fridriksson, J., Hickok, G., Hillis, A.E., den Ouden, D.B., & Rorden, C. (2024). The Aphasia Recovery Cohort, an open-source chronic stroke repository. *Scientific Data*, 11(1), 981. https://doi.org/10.1038/s41597-024-03819-7
+
+### Dataset
+
+> Gibson, M. et al. (2023). Aphasia Recovery Cohort (ARC) Dataset. OpenNeuro. https://doi.org/10.18112/openneuro.ds004884.v1.0.1
+
+### BibTeX
+
+```bibtex
+@article{gibson2024aphasia,
+  title={The Aphasia Recovery Cohort, an open-source chronic stroke repository},
+  author={Gibson, Makayla and Newman-Norlund, Roger and Bonilha, Leonardo and Fridriksson, Julius and Hickok, Gregory and Hillis, Argye E and den Ouden, Dirk-Bart and Rorden, Christopher},
+  journal={Scientific Data},
+  volume={11},
+  number={1},
+  pages={981},
+  year={2024},
+  publisher={Nature Publishing Group},
+  doi={10.1038/s41597-024-03819-7}
+}
+
+@misc{gibson2023arc,
+  title={Aphasia Recovery Cohort (ARC) Dataset},
+  author={Gibson, Makayla and others},
+  year={2023},
+  publisher={OpenNeuro},
+  doi={10.18112/openneuro.ds004884.v1.0.1}
+}
 ```
 
 ## References

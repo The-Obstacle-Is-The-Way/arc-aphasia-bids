@@ -15,8 +15,13 @@ Workflow:
 
 Example:
     ```python
-    from arc_bids.core import DatasetBuilderConfig, build_hf_dataset
-    from arc_bids.arc import build_arc_file_table, get_arc_features
+    from pathlib import Path
+    from arc_bids import (
+        DatasetBuilderConfig,
+        build_arc_file_table,
+        build_hf_dataset,
+        get_arc_features,
+    )
 
     # Build file table from BIDS directory
     file_table = build_arc_file_table(Path("data/openneuro/ds004884"))
@@ -36,6 +41,7 @@ Modules:
     cli: Command-line interface
 """
 
+from .arc import build_arc_file_table, get_arc_features
 from .config import ARC_CONFIG, BidsDatasetConfig
 from .core import DatasetBuilderConfig, build_hf_dataset, push_dataset_to_hub
 
@@ -51,4 +57,7 @@ __all__ = [
     "DatasetBuilderConfig",
     "build_hf_dataset",
     "push_dataset_to_hub",
+    # ARC
+    "build_arc_file_table",
+    "get_arc_features",
 ]

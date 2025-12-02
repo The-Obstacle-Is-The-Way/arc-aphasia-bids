@@ -14,7 +14,7 @@ The typical workflow for a specific BIDS dataset (e.g., ARC, SOOP) is:
 
 Example usage:
     ```python
-    from hf_bids_nifti.core import DatasetBuilderConfig, build_hf_dataset
+    from arc_bids.core import DatasetBuilderConfig, build_hf_dataset
     from datasets import Features, Nifti, Value
 
     # Your file table with paths to NIfTI files
@@ -177,11 +177,21 @@ def push_dataset_to_hub(
             datasets where embedding is acceptable.
         **push_kwargs: Additional keyword arguments passed to `ds.push_to_hub()`.
 
+    Raises:
+        TypeError: If embed_external_files is passed in both the explicit
+            parameter and in push_kwargs.
+
     Example:
         ```python
         push_dataset_to_hub(ds, config, private=True)
         ```
     """
+    if "embed_external_files" in push_kwargs:
+        raise TypeError(
+            "Pass 'embed_external_files' via the explicit parameter on "
+            "`push_dataset_to_hub`, not in **push_kwargs."
+        )
+
     ds.push_to_hub(
         config.hf_repo_id,
         embed_external_files=embed_external_files,
