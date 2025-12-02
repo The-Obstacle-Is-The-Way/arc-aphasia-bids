@@ -5,7 +5,6 @@ These tests use synthetic BIDS structures to verify the ARC file-table builder
 and HF Dataset conversion work correctly.
 """
 
-import contextlib
 import tempfile
 from collections.abc import Generator
 from pathlib import Path
@@ -35,24 +34,32 @@ def _create_minimal_nifti(path: Path) -> None:
 def synthetic_bids_root() -> Generator[Path, None, None]:
     """Create a synthetic BIDS dataset for testing.
 
-    Structure:
+    Structure (multi-session, includes FLAIR):
         ds004884/
         ├── participants.tsv
         ├── sub-M2001/
-        │   └── ses-1/
+        │   ├── ses-1/
+        │   │   └── anat/
+        │   │       ├── sub-M2001_ses-1_T1w.nii.gz
+        │   │       ├── sub-M2001_ses-1_T2w.nii.gz
+        │   │       └── sub-M2001_ses-1_FLAIR.nii.gz
+        │   └── ses-2/
         │       └── anat/
-        │           ├── sub-M2001_ses-1_T1w.nii.gz
-        │           └── sub-M2001_ses-1_T2w.nii.gz
+        │           ├── sub-M2001_ses-2_T1w.nii.gz
+        │           └── sub-M2001_ses-2_T2w.nii.gz  (no FLAIR in ses-2)
         ├── sub-M2002/
         │   └── ses-1/
         │       └── anat/
-        │           └── sub-M2002_ses-1_T1w.nii.gz  (no T2w)
+        │           └── sub-M2002_ses-1_T1w.nii.gz  (no T2w, no FLAIR)
         └── derivatives/
             └── lesion_masks/
                 ├── sub-M2001/
-                │   └── ses-1/
+                │   ├── ses-1/
+                │   │   └── anat/
+                │   │       └── sub-M2001_ses-1_desc-lesion_mask.nii.gz
+                │   └── ses-2/
                 │       └── anat/
-                │           └── sub-M2001_ses-1_desc-lesion_mask.nii.gz
+                │           └── sub-M2001_ses-2_desc-lesion_mask.nii.gz
                 └── sub-M2002/
                     └── ses-1/
                         └── anat/
@@ -75,11 +82,18 @@ def synthetic_bids_root() -> Generator[Path, None, None]:
         participants.to_csv(root / "participants.tsv", sep="\t", index=False)
 
         # Create subject folders with imaging data
-        # sub-M2001: has both T1w and T2w
+        # sub-M2001 ses-1: has T1w, T2w, and FLAIR
         _create_minimal_nifti(root / "sub-M2001" / "ses-1" / "anat" / "sub-M2001_ses-1_T1w.nii.gz")
         _create_minimal_nifti(root / "sub-M2001" / "ses-1" / "anat" / "sub-M2001_ses-1_T2w.nii.gz")
+        _create_minimal_nifti(
+            root / "sub-M2001" / "ses-1" / "anat" / "sub-M2001_ses-1_FLAIR.nii.gz"
+        )
 
-        # sub-M2002: has T1w only (no T2w)
+        # sub-M2001 ses-2: has T1w and T2w (no FLAIR)
+        _create_minimal_nifti(root / "sub-M2001" / "ses-2" / "anat" / "sub-M2001_ses-2_T1w.nii.gz")
+        _create_minimal_nifti(root / "sub-M2001" / "ses-2" / "anat" / "sub-M2001_ses-2_T2w.nii.gz")
+
+        # sub-M2002 ses-1: has T1w only (no T2w, no FLAIR)
         _create_minimal_nifti(root / "sub-M2002" / "ses-1" / "anat" / "sub-M2002_ses-1_T1w.nii.gz")
 
         # sub-M2003: no imaging data at all (only in participants.tsv)
@@ -88,6 +102,10 @@ def synthetic_bids_root() -> Generator[Path, None, None]:
         _create_minimal_nifti(
             root / "derivatives" / "lesion_masks" / "sub-M2001" / "ses-1" / "anat" /
             "sub-M2001_ses-1_desc-lesion_mask.nii.gz"
+        )
+        _create_minimal_nifti(
+            root / "derivatives" / "lesion_masks" / "sub-M2001" / "ses-2" / "anat" /
+            "sub-M2001_ses-2_desc-lesion_mask.nii.gz"
         )
         _create_minimal_nifti(
             root / "derivatives" / "lesion_masks" / "sub-M2002" / "ses-1" / "anat" /
@@ -107,65 +125,85 @@ class TestBuildArcFileTable:
         assert isinstance(df, pd.DataFrame)
 
     def test_build_file_table_has_correct_columns(self, synthetic_bids_root: Path) -> None:
-        """Test that the DataFrame has all expected columns."""
+        """Test that the DataFrame has all expected columns including session_id and flair."""
         df = build_arc_file_table(synthetic_bids_root)
         expected_columns = {
-            "subject_id", "t1w", "t2w", "lesion",
+            "subject_id", "session_id", "t1w", "t2w", "flair", "lesion",
             "age_at_stroke", "sex", "wab_aq", "wab_type"
         }
         assert set(df.columns) == expected_columns
 
     def test_build_file_table_has_correct_row_count(self, synthetic_bids_root: Path) -> None:
-        """Test that DataFrame has one row per subject in participants.tsv."""
+        """Test that DataFrame has one row per SESSION (not per subject)."""
         df = build_arc_file_table(synthetic_bids_root)
-        assert len(df) == 3  # 3 subjects in synthetic data
+        # sub-M2001 has 2 sessions, sub-M2002 has 1 session, sub-M2003 has 0 sessions
+        assert len(df) == 3  # 3 sessions total (not 3 subjects)
 
-    def test_build_file_table_subject_with_all_modalities(self, synthetic_bids_root: Path) -> None:
-        """Test that subject with all data has all paths populated."""
+    def test_build_file_table_session_with_all_modalities(self, synthetic_bids_root: Path) -> None:
+        """Test that session with all modalities has all paths populated."""
         df = build_arc_file_table(synthetic_bids_root)
-        sub1 = df[df["subject_id"] == "sub-M2001"].iloc[0]
+        # sub-M2001 ses-1 has T1w, T2w, FLAIR, and lesion
+        ses1 = df[(df["subject_id"] == "sub-M2001") & (df["session_id"] == "ses-1")].iloc[0]
 
-        assert sub1["t1w"] is not None
-        assert sub1["t2w"] is not None
-        assert sub1["lesion"] is not None
-        assert sub1["age_at_stroke"] == 38.0
-        assert sub1["sex"] == "F"
-        assert sub1["wab_aq"] == 87.1
-        assert sub1["wab_type"] == "Anomic"
+        assert ses1["t1w"] is not None
+        assert ses1["t2w"] is not None
+        assert ses1["flair"] is not None
+        assert ses1["lesion"] is not None
+        assert ses1["age_at_stroke"] == 38.0
+        assert ses1["sex"] == "F"
+        assert ses1["wab_aq"] == 87.1
+        assert ses1["wab_type"] == "Anomic"
 
-    def test_build_file_table_subject_with_partial_data(self, synthetic_bids_root: Path) -> None:
-        """Test that subject with partial data has None for missing paths."""
+    def test_build_file_table_session_partial_modalities(
+        self, synthetic_bids_root: Path
+    ) -> None:
+        """Test that session with partial modalities has None for missing paths."""
         df = build_arc_file_table(synthetic_bids_root)
-        sub2 = df[df["subject_id"] == "sub-M2002"].iloc[0]
+        # sub-M2001 ses-2 has T1w and T2w but no FLAIR
+        ses2 = df[(df["subject_id"] == "sub-M2001") & (df["session_id"] == "ses-2")].iloc[0]
 
-        assert sub2["t1w"] is not None
-        assert sub2["t2w"] is None  # No T2w for sub-M2002
-        assert sub2["lesion"] is not None
+        assert ses2["t1w"] is not None
+        assert ses2["t2w"] is not None
+        assert ses2["flair"] is None  # No FLAIR in ses-2
+        assert ses2["lesion"] is not None
 
-    def test_build_file_table_subject_with_no_imaging(self, synthetic_bids_root: Path) -> None:
-        """Test that subject with no imaging data has None for all paths."""
+    def test_build_file_table_session_with_minimal_data(self, synthetic_bids_root: Path) -> None:
+        """Test that session with minimal data has None for missing paths."""
         df = build_arc_file_table(synthetic_bids_root)
-        sub3 = df[df["subject_id"] == "sub-M2003"].iloc[0]
+        # sub-M2002 ses-1 has T1w only (no T2w, no FLAIR)
+        sub2_ses1 = df[(df["subject_id"] == "sub-M2002") & (df["session_id"] == "ses-1")].iloc[0]
 
-        assert sub3["t1w"] is None
-        assert sub3["t2w"] is None
-        assert sub3["lesion"] is None
+        assert sub2_ses1["t1w"] is not None
+        assert sub2_ses1["t2w"] is None  # No T2w
+        assert sub2_ses1["flair"] is None  # No FLAIR
+        assert sub2_ses1["lesion"] is not None
 
-    def test_build_file_table_missing_wab_aq_is_null(self, synthetic_bids_root: Path) -> None:
-        """Test that missing wab_aq is null (None or NaN)."""
+    def test_build_file_table_no_sessions_excluded(
+        self, synthetic_bids_root: Path
+    ) -> None:
+        """Test that subjects with no sessions are excluded from output."""
         df = build_arc_file_table(synthetic_bids_root)
-        sub3 = df[df["subject_id"] == "sub-M2003"].iloc[0]
+        # sub-M2003 has no imaging data (no sessions), should not appear
+        sub3_rows = df[df["subject_id"] == "sub-M2003"]
+        assert len(sub3_rows) == 0
 
-        # pandas represents missing values as NaN, which pd.isna() detects
-        assert pd.isna(sub3["wab_aq"])
+    def test_build_file_table_multiple_sessions(
+        self, synthetic_bids_root: Path
+    ) -> None:
+        """Test that subjects with multiple sessions have multiple rows."""
+        df = build_arc_file_table(synthetic_bids_root)
+        # sub-M2001 has 2 sessions
+        sub1_rows = df[df["subject_id"] == "sub-M2001"]
+        assert len(sub1_rows) == 2
+        assert set(sub1_rows["session_id"]) == {"ses-1", "ses-2"}
 
     def test_build_file_table_paths_are_absolute(self, synthetic_bids_root: Path) -> None:
         """Test that file paths are absolute."""
         df = build_arc_file_table(synthetic_bids_root)
-        sub1 = df[df["subject_id"] == "sub-M2001"].iloc[0]
+        ses1 = df[(df["subject_id"] == "sub-M2001") & (df["session_id"] == "ses-1")].iloc[0]
 
-        assert Path(sub1["t1w"]).is_absolute()
-        assert Path(sub1["lesion"]).is_absolute()
+        assert Path(ses1["t1w"]).is_absolute()
+        assert Path(ses1["lesion"]).is_absolute()
 
     def test_build_file_table_missing_participants_raises(self, tmp_path: Path) -> None:
         """Test that missing participants.tsv raises FileNotFoundError."""
@@ -188,19 +226,21 @@ class TestGetArcFeatures:
         assert isinstance(features, Features)
 
     def test_get_features_has_nifti_columns(self) -> None:
-        """Test that Nifti columns are present."""
+        """Test that Nifti columns are present including flair."""
         from datasets import Nifti
         features = get_arc_features()
 
         assert isinstance(features["t1w"], Nifti)
         assert isinstance(features["t2w"], Nifti)
+        assert isinstance(features["flair"], Nifti)
         assert isinstance(features["lesion"], Nifti)
 
     def test_get_features_has_metadata_columns(self) -> None:
-        """Test that metadata columns are present."""
+        """Test that metadata columns are present including session_id."""
         features = get_arc_features()
 
         assert "subject_id" in features
+        assert "session_id" in features
         assert "age_at_stroke" in features
         assert "sex" in features
         assert "wab_aq" in features
@@ -210,19 +250,35 @@ class TestGetArcFeatures:
 class TestBuildAndPushArc:
     """Tests for build_and_push_arc integration."""
 
-    def test_dry_run_builds_dataset(self, synthetic_bids_root: Path) -> None:
-        """Test that dry run builds a dataset without pushing."""
+    def test_dry_run_calls_build_hf_dataset(self, synthetic_bids_root: Path) -> None:
+        """Test that dry run calls build_hf_dataset with correct arguments."""
+        from unittest.mock import patch
+
         config = DatasetBuilderConfig(
             bids_root=synthetic_bids_root,
             hf_repo_id="test/test-repo",
             dry_run=True,
         )
 
-        # This should complete without error in dry_run mode
-        # Note: This will fail because file_table columns won't match features
-        # due to None values in Nifti columns. That's expected behavior.
-        # A real implementation would filter or handle nulls differently.
-        # For this test, we just verify the function doesn't raise before that point.
-        with contextlib.suppress(ValueError, TypeError):
-            # Expected: casting None paths to Nifti() may fail
+        with patch("arc_bids.arc.build_hf_dataset") as mock_build:
+            mock_build.return_value = None
             build_and_push_arc(config)
+            mock_build.assert_called_once()
+
+    def test_dry_run_does_not_push(self, synthetic_bids_root: Path) -> None:
+        """Test that dry run does not call push_dataset_to_hub."""
+        from unittest.mock import MagicMock, patch
+
+        config = DatasetBuilderConfig(
+            bids_root=synthetic_bids_root,
+            hf_repo_id="test/test-repo",
+            dry_run=True,
+        )
+
+        with (
+            patch("arc_bids.arc.build_hf_dataset") as mock_build,
+            patch("arc_bids.arc.push_dataset_to_hub") as mock_push,
+        ):
+            mock_build.return_value = MagicMock()
+            build_and_push_arc(config)
+            mock_push.assert_not_called()

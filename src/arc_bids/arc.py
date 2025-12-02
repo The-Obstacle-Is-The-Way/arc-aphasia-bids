@@ -27,17 +27,17 @@ from datasets import Features, Nifti, Value
 from .core import DatasetBuilderConfig, build_hf_dataset, push_dataset_to_hub
 
 
-def _find_first_nifti(directory: Path, pattern: str) -> str | None:
-    """Find the first NIfTI file matching a pattern in a directory tree.
+def _find_nifti_in_session(session_dir: Path, pattern: str) -> str | None:
+    """Find a NIfTI file matching a pattern within a session directory.
 
     Args:
-        directory: Root directory to search.
+        session_dir: Session directory (e.g., sub-M2001/ses-1).
         pattern: Glob pattern to match (e.g., "*_T1w.nii.gz").
 
     Returns:
         Absolute path to the first matching file, or None if not found.
     """
-    matches = list(directory.rglob(pattern))
+    matches = list(session_dir.rglob(pattern))
     if matches:
         return str(matches[0].resolve())
     return None
@@ -48,13 +48,14 @@ def build_arc_file_table(bids_root: Path) -> pd.DataFrame:
     Build a file table for the ARC dataset.
 
     Walks the BIDS directory structure and builds a pandas DataFrame with
-    one row per subject containing paths to imaging data and metadata.
+    one row per SESSION containing paths to imaging data and metadata.
 
     The function:
     1. Reads participants.tsv for demographics (age, sex, WAB scores)
-    2. For each subject, finds T1w and T2w images in sub-*/ses-*/anat/
-    3. Finds lesion masks in derivatives/lesion_masks/sub-*/ses-*/anat/
-    4. Returns a DataFrame ready for HF Dataset conversion
+    2. For each subject, iterates over all sessions (ses-*)
+    3. For each session, finds T1w, T2w, and FLAIR images in anat/
+    4. Finds lesion masks in derivatives/lesion_masks/sub-*/ses-*/anat/
+    5. Returns a DataFrame ready for HF Dataset conversion
 
     Args:
         bids_root: Path to the root of the ARC BIDS dataset (ds004884).
@@ -62,8 +63,10 @@ def build_arc_file_table(bids_root: Path) -> pd.DataFrame:
     Returns:
         DataFrame with columns:
             - subject_id (str): BIDS subject identifier (e.g., "sub-M2001")
+            - session_id (str): BIDS session identifier (e.g., "ses-1")
             - t1w (str | None): Absolute path to T1-weighted NIfTI
             - t2w (str | None): Absolute path to T2-weighted NIfTI
+            - flair (str | None): Absolute path to FLAIR NIfTI
             - lesion (str | None): Absolute path to lesion mask NIfTI
             - age_at_stroke (float): Subject age at stroke
             - sex (str): Subject sex (M/F)
@@ -88,28 +91,23 @@ def build_arc_file_table(bids_root: Path) -> pd.DataFrame:
 
     participants = pd.read_csv(participants_tsv, sep="\t")
 
-    # Build file table
+    # Build file table - one row per session
     rows: list[dict[str, str | float | None]] = []
 
     for _, row in participants.iterrows():
         subject_id = str(row["participant_id"])
         subject_dir = bids_root / subject_id
 
-        # Find T1w image (search all sessions)
-        t1w_path = _find_first_nifti(subject_dir, "*_T1w.nii.gz") if subject_dir.exists() else None
+        if not subject_dir.exists():
+            continue
 
-        # Find T2w image (search all sessions)
-        t2w_path = _find_first_nifti(subject_dir, "*_T2w.nii.gz") if subject_dir.exists() else None
+        # Find all sessions for this subject
+        session_dirs = sorted(subject_dir.glob("ses-*"))
 
-        # Find lesion mask in derivatives
-        lesion_dir = bids_root / "derivatives" / "lesion_masks" / subject_id
-        lesion_path = (
-            _find_first_nifti(lesion_dir, "*_desc-lesion_mask.nii.gz")
-            if lesion_dir.exists()
-            else None
-        )
+        if not session_dirs:
+            continue
 
-        # Extract metadata with safe type conversion
+        # Extract subject-level metadata (same for all sessions)
         age_at_stroke = row.get("age_at_stroke")
         try:
             age_at_stroke = float(age_at_stroke) if pd.notna(age_at_stroke) else None
@@ -125,16 +123,37 @@ def build_arc_file_table(bids_root: Path) -> pd.DataFrame:
         sex = str(row.get("sex", "")) if pd.notna(row.get("sex")) else None
         wab_type = str(row.get("wab_type", "")) if pd.notna(row.get("wab_type")) else None
 
-        rows.append({
-            "subject_id": subject_id,
-            "t1w": t1w_path,
-            "t2w": t2w_path,
-            "lesion": lesion_path,
-            "age_at_stroke": age_at_stroke,
-            "sex": sex,
-            "wab_aq": wab_aq,
-            "wab_type": wab_type,
-        })
+        # Iterate over each session
+        for session_dir in session_dirs:
+            session_id = session_dir.name  # e.g., "ses-1"
+
+            # Find modalities within this session
+            t1w_path = _find_nifti_in_session(session_dir, "*_T1w.nii.gz")
+            t2w_path = _find_nifti_in_session(session_dir, "*_T2w.nii.gz")
+            flair_path = _find_nifti_in_session(session_dir, "*_FLAIR.nii.gz")
+
+            # Find lesion mask in derivatives for this session
+            lesion_session_dir = (
+                bids_root / "derivatives" / "lesion_masks" / subject_id / session_id
+            )
+            lesion_path = (
+                _find_nifti_in_session(lesion_session_dir, "*_desc-lesion_mask.nii.gz")
+                if lesion_session_dir.exists()
+                else None
+            )
+
+            rows.append({
+                "subject_id": subject_id,
+                "session_id": session_id,
+                "t1w": t1w_path,
+                "t2w": t2w_path,
+                "flair": flair_path,
+                "lesion": lesion_path,
+                "age_at_stroke": age_at_stroke,
+                "sex": sex,
+                "wab_aq": wab_aq,
+                "wab_type": wab_type,
+            })
 
     return pd.DataFrame(rows)
 
@@ -145,8 +164,10 @@ def get_arc_features() -> Features:
 
     Schema:
         - subject_id: BIDS identifier (e.g., "sub-M2001")
+        - session_id: BIDS session identifier (e.g., "ses-1")
         - t1w: T1-weighted structural MRI (Nifti)
         - t2w: T2-weighted structural MRI (Nifti, nullable)
+        - flair: FLAIR structural MRI (Nifti, nullable)
         - lesion: Expert-drawn lesion mask (Nifti)
         - age_at_stroke: Age at time of stroke (float)
         - sex: Biological sex (M/F)
@@ -159,8 +180,10 @@ def get_arc_features() -> Features:
     return Features(
         {
             "subject_id": Value("string"),
+            "session_id": Value("string"),
             "t1w": Nifti(),
             "t2w": Nifti(),
+            "flair": Nifti(),
             "lesion": Nifti(),
             "age_at_stroke": Value("float32"),
             "sex": Value("string"),
