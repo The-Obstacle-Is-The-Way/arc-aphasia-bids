@@ -256,4 +256,12 @@ def build_and_push_arc(config: DatasetBuilderConfig) -> None:
 
     # Push to Hub if not a dry run
     if not config.dry_run:
-        push_dataset_to_hub(ds, config)
+        # CRITICAL: Force sharding to prevent OOM.
+        # The dataset library estimates size based on file paths (small),
+        # but embedding NIfTIs makes it huge (278GB).
+        # Without num_shards, it tries to build 1 giant shard in RAM -> CRASH.
+        # 1 shard per session (~300MB) is safe and efficient.
+        num_shards = len(file_table)
+        logger.info("Pushing to Hub with num_shards=%d to prevent OOM", num_shards)
+
+        push_dataset_to_hub(ds, config, num_shards=num_shards)
