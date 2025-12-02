@@ -1,8 +1,8 @@
 """
 ARC (Aphasia Recovery Cohort) dataset module.
 
-This module provides STUB implementations for converting the ARC BIDS dataset
-(OpenNeuro ds004884) into a Hugging Face Dataset.
+This module converts the ARC BIDS dataset (OpenNeuro ds004884) into a
+Hugging Face Dataset.
 
 Dataset info:
 - OpenNeuro ID: ds004884
@@ -11,18 +11,12 @@ Dataset info:
 - URL: https://openneuro.org/datasets/ds004884
 
 The ARC dataset contains:
+- 230 chronic stroke patients with aphasia
+- 902 scanning sessions (longitudinal)
 - T1-weighted structural MRI scans
-- Lesion segmentation masks
-- Demographic and clinical metadata (age, sex, WAB-AQ scores, etc.)
-
-IMPORTANT: These are TEMPLATE/STUB implementations. The actual file-table
-builder needs to be implemented based on the specific BIDS structure of ds004884.
-
-To implement:
-1. Download ds004884 from OpenNeuro
-2. Examine the BIDS structure (participants.tsv, folder hierarchy)
-3. Implement `build_arc_file_table()` to walk the directory and build a DataFrame
-4. Update `get_arc_features()` with the actual schema
+- T2-weighted structural MRI scans
+- Expert-drawn lesion segmentation masks
+- Demographic and clinical metadata (age, sex, WAB-AQ scores)
 """
 
 from pathlib import Path
@@ -33,47 +27,131 @@ from datasets import Features, Nifti, Value
 from .core import DatasetBuilderConfig, build_hf_dataset, push_dataset_to_hub
 
 
+def _find_first_nifti(directory: Path, pattern: str) -> str | None:
+    """Find the first NIfTI file matching a pattern in a directory tree.
+
+    Args:
+        directory: Root directory to search.
+        pattern: Glob pattern to match (e.g., "*_T1w.nii.gz").
+
+    Returns:
+        Absolute path to the first matching file, or None if not found.
+    """
+    matches = list(directory.rglob(pattern))
+    if matches:
+        return str(matches[0].resolve())
+    return None
+
+
 def build_arc_file_table(bids_root: Path) -> pd.DataFrame:
     """
     Build a file table for the ARC dataset.
 
-    TEMPLATE/STUB - Not yet implemented.
+    Walks the BIDS directory structure and builds a pandas DataFrame with
+    one row per subject containing paths to imaging data and metadata.
 
-    When implemented, this function will:
-    - Read participants.tsv from the BIDS root
-    - Walk the dataset directory structure to locate NIfTI files
-    - Build a DataFrame with one row per subject (or subject/session)
-
-    Expected columns (to be finalized):
-        - subject_id (str): BIDS subject identifier (e.g., "sub-M2001")
-        - t1w_path (str): Path to T1-weighted NIfTI file
-        - lesion_path (str): Path to lesion mask NIfTI file
-        - age (float): Subject age at scan
-        - sex (str): Subject sex (M/F)
-        - wab_aq (float): Western Aphasia Battery - Aphasia Quotient
+    The function:
+    1. Reads participants.tsv for demographics (age, sex, WAB scores)
+    2. For each subject, finds T1w and T2w images in sub-*/ses-*/anat/
+    3. Finds lesion masks in derivatives/lesion_masks/sub-*/ses-*/anat/
+    4. Returns a DataFrame ready for HF Dataset conversion
 
     Args:
         bids_root: Path to the root of the ARC BIDS dataset (ds004884).
 
     Returns:
-        DataFrame with one row per subject and columns for file paths + metadata.
+        DataFrame with columns:
+            - subject_id (str): BIDS subject identifier (e.g., "sub-M2001")
+            - t1w (str | None): Absolute path to T1-weighted NIfTI
+            - t2w (str | None): Absolute path to T2-weighted NIfTI
+            - lesion (str | None): Absolute path to lesion mask NIfTI
+            - age_at_stroke (float): Subject age at stroke
+            - sex (str): Subject sex (M/F)
+            - wab_aq (float): WAB Aphasia Quotient (severity score)
+            - wab_type (str): Aphasia type classification
 
     Raises:
-        NotImplementedError: This is a stub; implementation is pending.
+        FileNotFoundError: If participants.tsv doesn't exist.
+        ValueError: If bids_root doesn't exist or is not a directory.
     """
-    raise NotImplementedError(
-        "ARC file-table builder not implemented yet. "
-        "Please download ds004884 from OpenNeuro and implement this function "
-        "based on the actual BIDS structure."
-    )
+    bids_root = Path(bids_root).resolve()
+
+    if not bids_root.exists():
+        raise ValueError(f"BIDS root does not exist: {bids_root}")
+    if not bids_root.is_dir():
+        raise ValueError(f"BIDS root is not a directory: {bids_root}")
+
+    # Read participants.tsv
+    participants_tsv = bids_root / "participants.tsv"
+    if not participants_tsv.exists():
+        raise FileNotFoundError(f"participants.tsv not found at {participants_tsv}")
+
+    participants = pd.read_csv(participants_tsv, sep="\t")
+
+    # Build file table
+    rows: list[dict[str, str | float | None]] = []
+
+    for _, row in participants.iterrows():
+        subject_id = str(row["participant_id"])
+        subject_dir = bids_root / subject_id
+
+        # Find T1w image (search all sessions)
+        t1w_path = _find_first_nifti(subject_dir, "*_T1w.nii.gz") if subject_dir.exists() else None
+
+        # Find T2w image (search all sessions)
+        t2w_path = _find_first_nifti(subject_dir, "*_T2w.nii.gz") if subject_dir.exists() else None
+
+        # Find lesion mask in derivatives
+        lesion_dir = bids_root / "derivatives" / "lesion_masks" / subject_id
+        lesion_path = (
+            _find_first_nifti(lesion_dir, "*_desc-lesion_mask.nii.gz")
+            if lesion_dir.exists()
+            else None
+        )
+
+        # Extract metadata with safe type conversion
+        age_at_stroke = row.get("age_at_stroke")
+        try:
+            age_at_stroke = float(age_at_stroke) if pd.notna(age_at_stroke) else None
+        except (ValueError, TypeError):
+            age_at_stroke = None
+
+        wab_aq = row.get("wab_aq")
+        try:
+            wab_aq = float(wab_aq) if pd.notna(wab_aq) else None
+        except (ValueError, TypeError):
+            wab_aq = None
+
+        sex = str(row.get("sex", "")) if pd.notna(row.get("sex")) else None
+        wab_type = str(row.get("wab_type", "")) if pd.notna(row.get("wab_type")) else None
+
+        rows.append({
+            "subject_id": subject_id,
+            "t1w": t1w_path,
+            "t2w": t2w_path,
+            "lesion": lesion_path,
+            "age_at_stroke": age_at_stroke,
+            "sex": sex,
+            "wab_aq": wab_aq,
+            "wab_type": wab_type,
+        })
+
+    return pd.DataFrame(rows)
 
 
 def get_arc_features() -> Features:
     """
     Get the Hugging Face Features schema for the ARC dataset.
 
-    Returns a TEMPLATE Features object demonstrating the expected schema.
-    This should be updated once the actual ARC data structure is known.
+    Schema:
+        - subject_id: BIDS identifier (e.g., "sub-M2001")
+        - t1w: T1-weighted structural MRI (Nifti)
+        - t2w: T2-weighted structural MRI (Nifti, nullable)
+        - lesion: Expert-drawn lesion mask (Nifti)
+        - age_at_stroke: Age at time of stroke (float)
+        - sex: Biological sex (M/F)
+        - wab_aq: WAB Aphasia Quotient (severity score, 0-100)
+        - wab_type: Aphasia type classification
 
     Returns:
         Features object with Nifti() for image columns and Value() for metadata.
@@ -82,10 +160,12 @@ def get_arc_features() -> Features:
         {
             "subject_id": Value("string"),
             "t1w": Nifti(),
+            "t2w": Nifti(),
             "lesion": Nifti(),
-            "age": Value("float32"),
+            "age_at_stroke": Value("float32"),
             "sex": Value("string"),
             "wab_aq": Value("float32"),
+            "wab_type": Value("string"),
         }
     )
 

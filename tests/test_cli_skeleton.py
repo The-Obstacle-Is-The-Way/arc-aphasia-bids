@@ -45,8 +45,8 @@ class TestCliHelp:
 class TestCliCommands:
     """Tests for CLI command execution."""
 
-    def test_build_raises_not_implemented(self, tmp_path: Path) -> None:
-        """Test that build command raises NotImplementedError (expected for stub)."""
+    def test_build_raises_file_not_found_without_participants(self, tmp_path: Path) -> None:
+        """Test that build command raises FileNotFoundError when participants.tsv is missing."""
         result = runner.invoke(
             app,
             [
@@ -58,11 +58,11 @@ class TestCliCommands:
             ],
         )
 
-        # Should fail because build_arc_file_table raises NotImplementedError
+        # Should fail because participants.tsv doesn't exist
         assert result.exit_code != 0
         # Exception is captured in result.exception, not stdout
-        assert isinstance(result.exception, NotImplementedError)
-        assert "not implemented" in str(result.exception).lower()
+        assert isinstance(result.exception, FileNotFoundError)
+        assert "participants.tsv" in str(result.exception)
 
     def test_build_missing_bids_root_fails(self) -> None:
         """Test that build command fails when bids_root is not provided."""
