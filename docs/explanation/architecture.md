@@ -73,7 +73,7 @@ Uploading NIfTI datasets to HuggingFace should be a one-liner, not a multi-day d
 
 ## Module Structure
 
-```
+```text
 src/arc_bids/
 ├── __init__.py      # Package exports
 ├── arc.py           # ARC-specific: schema, file discovery, pipeline
@@ -84,7 +84,7 @@ src/arc_bids/
 
 ### Separation of Concerns
 
-- **`core.py`**: Dataset-agnostic utilities. Could be reused for any BIDS dataset.
+- **`core.py`**: Dataset-agnostic utilities that can be reused for any BIDS dataset.
 - **`arc.py`**: ARC-specific knowledge (modalities, directory structure, metadata columns).
 - **`validation.py`**: Expected counts from the Scientific Data paper for verification.
 

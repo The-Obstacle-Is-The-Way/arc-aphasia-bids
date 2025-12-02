@@ -8,7 +8,7 @@ This documentation follows the [Diátaxis](https://diataxis.fr/) framework.
 
 ## Tutorials
 
-*Learning-oriented: Get started from scratch*
+**Learning-oriented:** Get started from scratch
 
 - [Your First NIfTI Dataset Upload](tutorials/first-upload.md) - Upload a BIDS dataset to HuggingFace Hub
 
@@ -16,7 +16,7 @@ This documentation follows the [Diátaxis](https://diataxis.fr/) framework.
 
 ## How-to Guides
 
-*Task-oriented: Solve specific problems*
+**Task-oriented:** Solve specific problems
 
 - [Fix OOM Crashes on Large Datasets](how-to/fix-oom-crashes.md)
 - [Fix Empty/Zero-Byte Uploads](how-to/fix-empty-uploads.md)
@@ -26,7 +26,7 @@ This documentation follows the [Diátaxis](https://diataxis.fr/) framework.
 
 ## Reference
 
-*Information-oriented: Technical specifications*
+**Information-oriented:** Technical specifications
 
 - [CLI Reference](reference/cli.md) - Command-line interface
 - [Python API](reference/api.md) - Module and function reference
@@ -36,7 +36,7 @@ This documentation follows the [Diátaxis](https://diataxis.fr/) framework.
 
 ## Explanation
 
-*Understanding-oriented: Background and concepts*
+**Understanding-oriented:** Background and concepts
 
 - [Why Uploads Fail](explanation/why-uploads-fail.md) - The "metadata trap" and other pitfalls
 - [Architecture Decisions](explanation/architecture.md) - Design rationale
