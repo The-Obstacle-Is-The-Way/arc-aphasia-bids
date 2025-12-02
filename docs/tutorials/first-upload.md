@@ -21,11 +21,24 @@ By the end of this tutorial, you will have:
 
 **Critical**: You must install `datasets` from GitHub, not PyPI. The stable release has a bug that uploads empty files.
 
-```bash
-# Create a new project
-mkdir my-bids-upload && cd my-bids-upload
+### Option A: Using pip (Universal)
 
-# Initialize with uv (recommended)
+```bash
+# Create a virtual environment
+python -m venv .venv
+source .venv/bin/activate
+
+# Install dependencies
+pip install nibabel pandas huggingface-hub
+
+# CRITICAL: Install datasets from git
+pip install "git+https://github.com/huggingface/datasets.git"
+```
+
+### Option B: Using uv (Recommended for speed)
+
+```bash
+# Initialize project
 uv init
 uv add nibabel pandas huggingface-hub
 
@@ -33,14 +46,16 @@ uv add nibabel pandas huggingface-hub
 uv add "datasets @ git+https://github.com/huggingface/datasets.git"
 ```
 
-Verify the installation:
+### Verification
+
+Verify you have the correct version:
 
 ```python
 import datasets
-print(datasets.__version__)  # Should show "4.4.2.dev0" or similar
+print(datasets.__version__)
+# MUST show a dev version (e.g., "3.4.0.dev0" or "4.4.2.dev0")
+# If it shows a stable version like "3.4.0" (no dev suffix), IT WILL FAIL.
 ```
-
-If you see `4.x.x` without `dev`, you have the wrong version.
 
 ---
 
@@ -58,7 +73,7 @@ Enter your token when prompted. You need write access to your target repository.
 
 Your BIDS dataset should look like:
 
-```
+```text
 my-bids-dataset/
 ├── participants.tsv
 ├── dataset_description.json
@@ -84,7 +99,7 @@ import pandas as pd
 from datasets import Dataset, Features, Value, Nifti
 
 # Point to your BIDS root
-bids_root = Path("my-bids-dataset")
+bids_root = Path("my-bids-dataset").resolve()  # Must be absolute!
 
 # Build file table - one row per session
 rows = []
@@ -97,8 +112,8 @@ for subject_dir in sorted(bids_root.glob("sub-*")):
         rows.append({
             "subject_id": subject_dir.name,
             "session_id": session_dir.name,
-            "t1w": str(t1w_files[0].resolve()) if t1w_files else None,
-            "bold": str(bold_files[0].resolve()) if bold_files else None,
+            "t1w": str(t1w_files[0]) if t1w_files else None,
+            "bold": str(bold_files[0]) if bold_files else None,
         })
 
 file_table = pd.DataFrame(rows)
@@ -106,7 +121,7 @@ print(f"Built file table with {len(file_table)} rows")
 print(file_table.head())
 ```
 
-**Important**: File paths must be **absolute paths** as strings.
+**Important**: File paths must be **absolute paths** as strings. Relative paths will fail because the `datasets` library resolves them against the script's working directory, which may change during the upload process or when running on different machines.
 
 ---
 

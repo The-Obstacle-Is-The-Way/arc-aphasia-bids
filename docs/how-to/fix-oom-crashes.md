@@ -7,7 +7,7 @@
 
 ## Symptoms
 
-```
+```text
 Uploading the dataset shards:   0%|          | 0/1 [00:00<?, ? shards/s]
 Map:   0%|          | 0/902 [00:00<?, ? examples/s]
 UserWarning: resource_tracker: There appear to be 1 leaked semaphore objects
@@ -57,9 +57,12 @@ When `embed_external_files=True` kicks in, it tries to load 273 GB into that sin
 | 10-100 GB | `num_shards=100` or row count |
 | > 100 GB | `num_shards=len(dataframe)` |
 
-For neuroimaging, one shard per session/subject is a good heuristic:
+**When is `len(dataframe)` safe?**
+This strategy works well for datasets with **hundreds to low thousands of rows** (e.g., neuroimaging sessions). If you have **millions** of small files (e.g., 2D JPEGs), creating millions of shards is inefficient. In that case, aim for ~500MB per shard (e.g., `total_size_mb / 500`).
+
+For neuroimaging (NIfTI), one shard per session is a robust heuristic:
 - Aligns with logical data structure
-- ~300 MB average is efficient
+- ~300 MB average is efficient (well below the 2GB shard limit)
 - Easy to reason about
 
 ---
@@ -98,7 +101,7 @@ ds.push_to_hub(
 
 After applying the fix, you should see progress like:
 
-```
+```text
 Uploading the dataset shards:   0%|          | 2/902 [00:07<47:55, 3.20s/shard]
 ```
 
