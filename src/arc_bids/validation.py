@@ -219,8 +219,10 @@ def _check_nifti_integrity(
 
     sample = random.sample(t1w_files, min(sample_size, len(t1w_files)))
 
+    failed_file: Path | None = None
     try:
         for f in sample:
+            failed_file = f  # Track current file for error reporting
             # Load header only (fast, catches corruption)
             img = nib.load(f)
             _ = img.header  # Access header to verify structure
@@ -237,6 +239,7 @@ def _check_nifti_integrity(
             expected="loadable",
             actual=f"ERROR: {e}",
             passed=False,
+            details=f"Failed on: {failed_file.name}" if failed_file else "",
         )
 
 
