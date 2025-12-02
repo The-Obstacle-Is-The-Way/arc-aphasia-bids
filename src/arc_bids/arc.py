@@ -184,7 +184,8 @@ def build_and_push_arc(config: DatasetBuilderConfig) -> None:
         config: Configuration with BIDS root path and HF repo info.
 
     Raises:
-        NotImplementedError: Until `build_arc_file_table()` is implemented.
+        FileNotFoundError: If participants.tsv doesn't exist.
+        ValueError: If bids_root doesn't exist or is not a directory.
     """
     # Build the file table from BIDS directory
     file_table = build_arc_file_table(config.bids_root)

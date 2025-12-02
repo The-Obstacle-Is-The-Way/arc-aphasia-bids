@@ -22,6 +22,7 @@ The [Aphasia Recovery Cohort (ARC)](https://openneuro.org/datasets/ds004884) is 
 ## Goal
 
 Convert ARC from BIDS → HuggingFace Dataset that:
+
 1. Works with `datasets.load_dataset()`
 2. Uses HF's `Nifti()` feature type for NIfTI loading
 3. Enables `push_to_hub()` workflow
@@ -52,7 +53,7 @@ HF Hub (via XET storage)
 | Module | Purpose |
 |--------|---------|
 | `src/arc_bids/core.py` | Generic BIDS→HF Dataset conversion |
-| `src/arc_bids/arc.py` | ARC-specific builder (to implement) |
+| `src/arc_bids/arc.py` | ARC dataset builder (file table + HF features) |
 | `src/arc_bids/cli.py` | Typer CLI |
 | `scripts/download_arc.sh` | Download ARC from OpenNeuro |
 
@@ -78,7 +79,7 @@ uv run arc-bids info
 # Download ARC dataset
 ./scripts/download_arc.sh
 
-# Build dataset (once implemented):
+# Build dataset (dry run):
 uv run arc-bids build data/openneuro/ds004884 --dry-run
 ```
 

@@ -11,8 +11,8 @@ Usage:
     # Process ARC dataset and push to Hub
     arc-bids build /path/to/ds004884 --hf-repo user/arc-dataset --no-dry-run
 
-Note: The `build` command will raise NotImplementedError until
-the file-table builder is implemented.
+Note: The `build` command expects the ARC BIDS tree (ds004884) to exist locally.
+It will build the HF dataset and optionally push it to the Hub.
 """
 
 from pathlib import Path
@@ -51,8 +51,9 @@ def build(
     """
     Build (and optionally push) the ARC HF dataset.
 
-    STUB: This command will raise NotImplementedError until
-    the ARC file-table builder is implemented.
+    Walks the BIDS directory, builds a file table with NIfTI paths and
+    participant metadata, converts to HF Dataset, and optionally pushes
+    to the Hub.
 
     Example:
         arc-bids build data/openneuro/ds004884 --dry-run
