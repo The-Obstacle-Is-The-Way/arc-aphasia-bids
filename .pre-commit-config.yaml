@@ -23,6 +23,5 @@ repos:
         additional_dependencies:
           - pandas-stubs>=2.0.0
           - types-pyyaml
-        args: [--config-file=pyproject.toml]
+        args: [--config-file=pyproject.toml, src/]
         pass_filenames: false
-        files: ^src/

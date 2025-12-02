@@ -23,6 +23,7 @@ The ARC dataset contains:
 - Demographic and clinical metadata (age, sex, WAB-AQ scores)
 """
 
+import contextlib
 from pathlib import Path
 
 import pandas as pd
@@ -118,17 +119,17 @@ def build_arc_file_table(bids_root: Path) -> pd.DataFrame:
             continue
 
         # Extract subject-level metadata (same for all sessions)
-        age_at_stroke = row.get("age_at_stroke")
-        try:
-            age_at_stroke = float(age_at_stroke) if pd.notna(age_at_stroke) else None
-        except (ValueError, TypeError):
-            age_at_stroke = None
+        age_at_stroke_raw = row.get("age_at_stroke")
+        age_at_stroke: float | None = None
+        if age_at_stroke_raw is not None and pd.notna(age_at_stroke_raw):
+            with contextlib.suppress(ValueError, TypeError):
+                age_at_stroke = float(age_at_stroke_raw)
 
-        wab_aq = row.get("wab_aq")
-        try:
-            wab_aq = float(wab_aq) if pd.notna(wab_aq) else None
-        except (ValueError, TypeError):
-            wab_aq = None
+        wab_aq_raw = row.get("wab_aq")
+        wab_aq: float | None = None
+        if wab_aq_raw is not None and pd.notna(wab_aq_raw):
+            with contextlib.suppress(ValueError, TypeError):
+                wab_aq = float(wab_aq_raw)
 
         sex = str(row.get("sex", "")) if pd.notna(row.get("sex")) else None
         wab_type = str(row.get("wab_type", "")) if pd.notna(row.get("wab_type")) else None
@@ -159,21 +160,23 @@ def build_arc_file_table(bids_root: Path) -> pd.DataFrame:
                 else None
             )
 
-            rows.append({
-                "subject_id": subject_id,
-                "session_id": session_id,
-                "t1w": t1w_path,
-                "t2w": t2w_path,
-                "flair": flair_path,
-                "bold": bold_path,
-                "dwi": dwi_path,
-                "sbref": sbref_path,
-                "lesion": lesion_path,
-                "age_at_stroke": age_at_stroke,
-                "sex": sex,
-                "wab_aq": wab_aq,
-                "wab_type": wab_type,
-            })
+            rows.append(
+                {
+                    "subject_id": subject_id,
+                    "session_id": session_id,
+                    "t1w": t1w_path,
+                    "t2w": t2w_path,
+                    "flair": flair_path,
+                    "bold": bold_path,
+                    "dwi": dwi_path,
+                    "sbref": sbref_path,
+                    "lesion": lesion_path,
+                    "age_at_stroke": age_at_stroke,
+                    "sex": sex,
+                    "wab_aq": wab_aq,
+                    "wab_type": wab_type,
+                }
+            )
 
     return pd.DataFrame(rows)
 

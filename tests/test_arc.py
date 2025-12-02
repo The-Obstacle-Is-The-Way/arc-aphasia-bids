@@ -69,15 +69,17 @@ def synthetic_bids_root() -> Generator[Path, None, None]:
         root.mkdir()
 
         # Create participants.tsv
-        participants = pd.DataFrame({
-            "participant_id": ["sub-M2001", "sub-M2002", "sub-M2003"],
-            "sex": ["F", "M", "F"],
-            "age_at_stroke": [38.0, 55.0, 42.0],
-            "race": ["n/a", "w", "b"],
-            "wab_days": [895, 3682, 1500],
-            "wab_aq": [87.1, 72.6, None],  # sub-M2003 has missing wab_aq
-            "wab_type": ["Anomic", "Broca", "n/a"],
-        })
+        participants = pd.DataFrame(
+            {
+                "participant_id": ["sub-M2001", "sub-M2002", "sub-M2003"],
+                "sex": ["F", "M", "F"],
+                "age_at_stroke": [38.0, 55.0, 42.0],
+                "race": ["n/a", "w", "b"],
+                "wab_days": [895, 3682, 1500],
+                "wab_aq": [87.1, 72.6, None],  # sub-M2003 has missing wab_aq
+                "wab_type": ["Anomic", "Broca", "n/a"],
+            }
+        )
         participants.to_csv(root / "participants.tsv", sep="\t", index=False)
 
         # sub-M2001 ses-1: FULL modalities (anat + func + dwi)
@@ -89,12 +91,8 @@ def synthetic_bids_root() -> Generator[Path, None, None]:
         _create_minimal_nifti(
             root / "sub-M2001" / "ses-1" / "func" / "sub-M2001_ses-1_task-rest_bold.nii.gz"
         )
-        _create_minimal_nifti(
-            root / "sub-M2001" / "ses-1" / "dwi" / "sub-M2001_ses-1_dwi.nii.gz"
-        )
-        _create_minimal_nifti(
-            root / "sub-M2001" / "ses-1" / "dwi" / "sub-M2001_ses-1_sbref.nii.gz"
-        )
+        _create_minimal_nifti(root / "sub-M2001" / "ses-1" / "dwi" / "sub-M2001_ses-1_dwi.nii.gz")
+        _create_minimal_nifti(root / "sub-M2001" / "ses-1" / "dwi" / "sub-M2001_ses-1_sbref.nii.gz")
 
         # sub-M2001 ses-2: has T1w and T2w only (no FLAIR, no func, no dwi)
         _create_minimal_nifti(root / "sub-M2001" / "ses-2" / "anat" / "sub-M2001_ses-2_T1w.nii.gz")
@@ -107,16 +105,31 @@ def synthetic_bids_root() -> Generator[Path, None, None]:
 
         # Create derivatives/lesion_masks
         _create_minimal_nifti(
-            root / "derivatives" / "lesion_masks" / "sub-M2001" / "ses-1" / "anat" /
-            "sub-M2001_ses-1_desc-lesion_mask.nii.gz"
+            root
+            / "derivatives"
+            / "lesion_masks"
+            / "sub-M2001"
+            / "ses-1"
+            / "anat"
+            / "sub-M2001_ses-1_desc-lesion_mask.nii.gz"
         )
         _create_minimal_nifti(
-            root / "derivatives" / "lesion_masks" / "sub-M2001" / "ses-2" / "anat" /
-            "sub-M2001_ses-2_desc-lesion_mask.nii.gz"
+            root
+            / "derivatives"
+            / "lesion_masks"
+            / "sub-M2001"
+            / "ses-2"
+            / "anat"
+            / "sub-M2001_ses-2_desc-lesion_mask.nii.gz"
         )
         _create_minimal_nifti(
-            root / "derivatives" / "lesion_masks" / "sub-M2002" / "ses-1" / "anat" /
-            "sub-M2002_ses-1_desc-lesion_mask.nii.gz"
+            root
+            / "derivatives"
+            / "lesion_masks"
+            / "sub-M2002"
+            / "ses-1"
+            / "anat"
+            / "sub-M2002_ses-1_desc-lesion_mask.nii.gz"
         )
         # sub-M2003: no lesion mask
 
@@ -135,9 +148,19 @@ class TestBuildArcFileTable:
         """Test that the DataFrame has all expected columns (FULL dataset)."""
         df = build_arc_file_table(synthetic_bids_root)
         expected_columns = {
-            "subject_id", "session_id",
-            "t1w", "t2w", "flair", "bold", "dwi", "sbref", "lesion",
-            "age_at_stroke", "sex", "wab_aq", "wab_type"
+            "subject_id",
+            "session_id",
+            "t1w",
+            "t2w",
+            "flair",
+            "bold",
+            "dwi",
+            "sbref",
+            "lesion",
+            "age_at_stroke",
+            "sex",
+            "wab_aq",
+            "wab_type",
         }
         assert set(df.columns) == expected_columns
 
@@ -165,9 +188,7 @@ class TestBuildArcFileTable:
         assert ses1["wab_aq"] == 87.1
         assert ses1["wab_type"] == "Anomic"
 
-    def test_build_file_table_session_partial_modalities(
-        self, synthetic_bids_root: Path
-    ) -> None:
+    def test_build_file_table_session_partial_modalities(self, synthetic_bids_root: Path) -> None:
         """Test that session with partial modalities has None for missing paths."""
         df = build_arc_file_table(synthetic_bids_root)
         # sub-M2001 ses-2 has only T1w and T2w (no FLAIR, no func, no dwi)
@@ -195,18 +216,14 @@ class TestBuildArcFileTable:
         assert sub2_ses1["sbref"] is None  # No dwi/
         assert sub2_ses1["lesion"] is not None
 
-    def test_build_file_table_no_sessions_excluded(
-        self, synthetic_bids_root: Path
-    ) -> None:
+    def test_build_file_table_no_sessions_excluded(self, synthetic_bids_root: Path) -> None:
         """Test that subjects with no sessions are excluded from output."""
         df = build_arc_file_table(synthetic_bids_root)
         # sub-M2003 has no imaging data (no sessions), should not appear
         sub3_rows = df[df["subject_id"] == "sub-M2003"]
         assert len(sub3_rows) == 0
 
-    def test_build_file_table_multiple_sessions(
-        self, synthetic_bids_root: Path
-    ) -> None:
+    def test_build_file_table_multiple_sessions(self, synthetic_bids_root: Path) -> None:
         """Test that subjects with multiple sessions have multiple rows."""
         df = build_arc_file_table(synthetic_bids_root)
         # sub-M2001 has 2 sessions
@@ -239,12 +256,14 @@ class TestGetArcFeatures:
     def test_get_features_returns_features(self) -> None:
         """Test that get_arc_features returns a Features object."""
         from datasets import Features
+
         features = get_arc_features()
         assert isinstance(features, Features)
 
     def test_get_features_has_nifti_columns(self) -> None:
         """Test that ALL Nifti columns are present (FULL dataset)."""
         from datasets import Nifti
+
         features = get_arc_features()
 
         assert isinstance(features["t1w"], Nifti)

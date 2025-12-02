@@ -193,9 +193,7 @@ def _check_series_count(
     )
 
 
-def _check_nifti_integrity(
-    bids_root: Path, sample_size: int = 10
-) -> ValidationCheck:
+def _check_nifti_integrity(bids_root: Path, sample_size: int = 10) -> ValidationCheck:
     """Spot-check NIfTI files for corruption using nibabel."""
     try:
         import nibabel as nib
@@ -338,13 +336,9 @@ def validate_arc_download(
     # Series counts from Sci Data paper
     result.add(_check_series_count(bids_root, "t1w", "*_T1w.nii.gz", "t1w_series"))
     result.add(_check_series_count(bids_root, "t2w", "*_T2w.nii.gz", "t2w_series"))
+    result.add(_check_series_count(bids_root, "flair", "*_FLAIR.nii.gz", "flair_series"))
     result.add(
-        _check_series_count(bids_root, "flair", "*_FLAIR.nii.gz", "flair_series")
-    )
-    result.add(
-        _check_series_count(
-            bids_root, "lesion", "*_desc-lesion_mask.nii.gz", "lesion_masks"
-        )
+        _check_series_count(bids_root, "lesion", "*_desc-lesion_mask.nii.gz", "lesion_masks")
     )
 
     # NIfTI integrity check
