@@ -43,6 +43,28 @@ def _find_first_nifti(directory: Path, pattern: str) -> str | None:
     return None
 
 
+def _read_nifti_bytes(path: str | None) -> dict[str, bytes | str] | None:
+    """Read a NIfTI file and return bytes dict for HF Nifti feature.
+
+    The HuggingFace Nifti() feature type doesn't have embed_storage support
+    (unlike Image/Audio), so we must read bytes explicitly for push_to_hub
+    to embed the file contents in Parquet shards.
+
+    Args:
+        path: Absolute path to NIfTI file, or None.
+
+    Returns:
+        Dict with 'bytes' and 'path' keys, or None if path is None.
+    """
+    if path is None:
+        return None
+
+    with open(path, "rb") as f:
+        file_bytes = f.read()
+
+    return {"bytes": file_bytes, "path": path}
+
+
 def build_arc_file_table(bids_root: Path) -> pd.DataFrame:
     """
     Build a file table for the ARC dataset.
@@ -89,25 +111,30 @@ def build_arc_file_table(bids_root: Path) -> pd.DataFrame:
     participants = pd.read_csv(participants_tsv, sep="\t")
 
     # Build file table
-    rows: list[dict[str, str | float | None]] = []
+    # Note: NIfTI columns store dict with 'bytes' and 'path' keys because
+    # HF Nifti() doesn't have embed_storage support (unlike Image/Audio)
+    rows: list[dict[str, str | float | dict[str, bytes | str] | None]] = []
 
     for _, row in participants.iterrows():
         subject_id = str(row["participant_id"])
         subject_dir = bids_root / subject_id
 
-        # Find T1w image (search all sessions)
+        # Find and read T1w image (search all sessions)
         t1w_path = _find_first_nifti(subject_dir, "*_T1w.nii.gz") if subject_dir.exists() else None
+        t1w_data = _read_nifti_bytes(t1w_path)
 
-        # Find T2w image (search all sessions)
+        # Find and read T2w image (search all sessions)
         t2w_path = _find_first_nifti(subject_dir, "*_T2w.nii.gz") if subject_dir.exists() else None
+        t2w_data = _read_nifti_bytes(t2w_path)
 
-        # Find lesion mask in derivatives
+        # Find and read lesion mask in derivatives
         lesion_dir = bids_root / "derivatives" / "lesion_masks" / subject_id
         lesion_path = (
             _find_first_nifti(lesion_dir, "*_desc-lesion_mask.nii.gz")
             if lesion_dir.exists()
             else None
         )
+        lesion_data = _read_nifti_bytes(lesion_path)
 
         # Extract metadata with safe type conversion
         age_at_stroke = row.get("age_at_stroke")
@@ -127,9 +154,9 @@ def build_arc_file_table(bids_root: Path) -> pd.DataFrame:
 
         rows.append({
             "subject_id": subject_id,
-            "t1w": t1w_path,
-            "t2w": t2w_path,
-            "lesion": lesion_path,
+            "t1w": t1w_data,
+            "t2w": t2w_data,
+            "lesion": lesion_data,
             "age_at_stroke": age_at_stroke,
             "sex": sex,
             "wab_aq": wab_aq,

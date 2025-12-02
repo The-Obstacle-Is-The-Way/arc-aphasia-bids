@@ -160,12 +160,13 @@ class TestBuildArcFileTable:
         assert pd.isna(sub3["wab_aq"])
 
     def test_build_file_table_paths_are_absolute(self, synthetic_bids_root: Path) -> None:
-        """Test that file paths are absolute."""
+        """Test that file paths in NIfTI dicts are absolute."""
         df = build_arc_file_table(synthetic_bids_root)
         sub1 = df[df["subject_id"] == "sub-M2001"].iloc[0]
 
-        assert Path(sub1["t1w"]).is_absolute()
-        assert Path(sub1["lesion"]).is_absolute()
+        # NIfTI columns now contain dicts with 'bytes' and 'path' keys
+        assert Path(sub1["t1w"]["path"]).is_absolute()
+        assert Path(sub1["lesion"]["path"]).is_absolute()
 
     def test_build_file_table_missing_participants_raises(self, tmp_path: Path) -> None:
         """Test that missing participants.tsv raises FileNotFoundError."""
