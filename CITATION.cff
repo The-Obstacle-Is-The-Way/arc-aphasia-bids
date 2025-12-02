@@ -8,9 +8,41 @@ authors:
   - name: The Obstacle Is The Way
 repository-code: https://github.com/The-Obstacle-Is-The-Way/arc-aphasia-bids
 license: Apache-2.0
+preferred-citation:
+  type: article
+  title: "The Aphasia Recovery Cohort, an open-source chronic stroke repository"
+  authors:
+    - family-names: Gibson
+      given-names: Makayla
+    - family-names: Newman-Norlund
+      given-names: Roger
+    - family-names: Bonilha
+      given-names: Leonardo
+    - family-names: Fridriksson
+      given-names: Julius
+    - family-names: Hickok
+      given-names: Gregory
+    - family-names: Hillis
+      given-names: Argye E.
+    - family-names: den Ouden
+      given-names: Dirk-Bart
+    - family-names: Rorden
+      given-names: Christopher
+  journal: Scientific Data
+  volume: 11
+  start: 981
+  year: 2024
+  doi: 10.1038/s41597-024-03819-7
+identifiers:
+  - type: doi
+    value: 10.1038/s41597-024-03819-7
+    description: Scientific Data paper
+  - type: doi
+    value: 10.18112/openneuro.ds004884.v1.0.1
+    description: OpenNeuro dataset
 references:
-  - type: article
-    title: "The Aphasia Recovery Cohort, an open-source chronic stroke repository"
+  - type: data
+    title: "Aphasia Recovery Cohort (ARC)"
     authors:
       - family-names: Gibson
         given-names: Makayla
@@ -28,18 +60,7 @@ references:
         given-names: Dirk-Bart
       - family-names: Rorden
         given-names: Christopher
-    journal: Scientific Data
-    volume: 11
-    issue: 1
-    start: 981
-    year: 2024
-    doi: 10.1038/s41597-024-03819-7
-  - type: data
-    title: "Aphasia Recovery Cohort (ARC) Dataset"
-    authors:
-      - family-names: Gibson
-        given-names: Makayla
-      - name: et al.
     repository: OpenNeuro
     doi: 10.18112/openneuro.ds004884.v1.0.1
-    year: 2023
+    year: 2024
+    license: CC0-1.0
