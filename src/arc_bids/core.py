@@ -221,13 +221,29 @@ def push_dataset_to_hub(
             local_parquet_path = tmp_path / shard_fname
 
             if embed_external_files:
-                # CRITICAL: Embed external files (NIfTIs) into the Arrow table.
-                # embed_table_storage expects a pyarrow.Table, NOT batches.
-                # shard._data.table gives us the raw PyArrow table.
-                table = shard._data.table
+                # CRITICAL FIX: Convert shard to pandas and back to break internal
+                # Arrow references that cause crashes in embed_table_storage.
+                # See UPSTREAM_BUG_ANALYSIS.md for full explanation.
+                #
+                # The issue: ds.shard() creates a view with internal state that
+                # causes embed_table_storage to crash (SIGKILL) on Sequence(Nifti())
+                # columns. Converting to pandas and recreating the Dataset breaks
+                # these problematic references.
+                shard_df = shard.to_pandas()
+                fresh_shard = Dataset.from_pandas(shard_df, preserve_index=False)
+                fresh_shard = fresh_shard.cast(ds.features)
+
+                # Now get the clean Arrow table
+                table = fresh_shard._data.table.combine_chunks()
+
+                # Embed external files (NIfTIs) into the Arrow table
                 embedded_table = embed_table_storage(table)
-                # Write embedded table directly with PyArrow (bypasses datasets overhead)
+
+                # Write embedded table directly with PyArrow
                 pq.write_table(embedded_table, str(local_parquet_path))
+
+                # Clean up the intermediate objects
+                del fresh_shard, shard_df
             else:
                 # No embedding needed, use standard parquet writer
                 shard.to_parquet(str(local_parquet_path))

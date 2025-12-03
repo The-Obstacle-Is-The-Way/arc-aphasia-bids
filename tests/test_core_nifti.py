@@ -354,9 +354,9 @@ class TestPushDatasetToHub:
             assert mock_push.call_args[1]["private"] is True
             assert mock_push.call_args[1]["commit_message"] == "test"
 
-    def test_push_dataset_to_hub_custom_sharded_logic(self) -> None:
+    def test_push_dataset_to_hub_custom_sharded_logic(self, temp_nifti_dir: Path) -> None:
         """Ensure custom sharding logic is triggered when num_shards > 1."""
-        from unittest.mock import MagicMock, patch
+        from unittest.mock import patch
 
         import pyarrow as pa
 
@@ -365,13 +365,22 @@ class TestPushDatasetToHub:
             hf_repo_id="test/arc-aphasia",
         )
 
-        mock_ds = MagicMock()
-        # Mock shard to return a mock with proper _data.table
-        mock_shard = MagicMock()
-        mock_ds.shard.return_value = mock_shard
-        # Create a real (empty) PyArrow table for the mock
-        mock_table = pa.table({"col": [1]})
-        mock_shard._data.table = mock_table
+        # Create a real small dataset (2 rows) for testing
+        features = Features(
+            {
+                "subject_id": Value("string"),
+                "t1w": Nifti(),
+            }
+        )
+        real_ds = Dataset.from_dict(
+            {
+                "subject_id": ["sub-001", "sub-002"],
+                "t1w": [
+                    str(temp_nifti_dir / "sub-000_T1w.nii.gz"),
+                    str(temp_nifti_dir / "sub-001_T1w.nii.gz"),
+                ],
+            }
+        ).cast(features)
 
         # Mock HfApi and pq.write_table
         with (
@@ -380,8 +389,8 @@ class TestPushDatasetToHub:
             patch("arc_bids.core.pq.write_table") as mock_write,
         ):
             mock_api_instance = MockApi.return_value
-            # embed_table_storage returns the same table
-            mock_embed.return_value = mock_table
+            # embed_table_storage returns a simple table
+            mock_embed.return_value = pa.table({"col": [1]})
 
             # Side effect for write_table to create the file so unlink() works
             def create_dummy_file(table: pa.Table, path: str) -> None:
@@ -389,19 +398,13 @@ class TestPushDatasetToHub:
 
             mock_write.side_effect = create_dummy_file
 
-            # Call with num_shards=2
-            push_dataset_to_hub(mock_ds, config, num_shards=2)
-
-            # Verify standard push_to_hub was NOT called
-            mock_ds.push_to_hub.assert_not_called()
+            # Call with num_shards=2 using real dataset
+            push_dataset_to_hub(real_ds, config, num_shards=2)
 
             # Verify create_repo called
             mock_api_instance.create_repo.assert_called_once_with(
                 "test/arc-aphasia", repo_type="dataset", exist_ok=True
             )
-
-            # Verify sharding called twice
-            assert mock_ds.shard.call_count == 2
 
             # Verify embed_table_storage called twice (once per shard)
             assert mock_embed.call_count == 2
