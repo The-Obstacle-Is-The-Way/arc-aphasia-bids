@@ -39,6 +39,7 @@ Example usage:
     ```
 """
 
+import gc
 import logging
 import tempfile
 from dataclasses import dataclass
@@ -258,15 +259,17 @@ def push_dataset_to_hub(
                     repo_type="dataset",
                     commit_message=f"Upload shard {i+1}/{num_shards}",
                 )
-            except Exception as e:
-                logger.error(f"Failed to upload shard {i}: {e}")
+            except Exception:
+                logger.exception("Failed to upload shard %d", i)
                 raise
 
             # Cleanup immediately to save disk space
             local_parquet_path.unlink()
 
-            # Explicitly delete shard object to help GC
+            # Explicitly delete shard and force garbage collection to reclaim memory
+            # before processing next shard (critical for 270GB+ datasets)
             del shard
+            gc.collect()
 
         # 2. Upload Metadata (dataset_info.json)
         logger.info("Generating and uploading dataset info...")

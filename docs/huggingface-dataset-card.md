@@ -78,6 +78,7 @@ configs:
 The Aphasia Recovery Cohort (ARC) is a large-scale, longitudinal neuroimaging dataset containing multimodal MRI scans from **230 chronic stroke patients with aphasia**. This HuggingFace-hosted version provides direct Python access to the BIDS-formatted data with embedded NIfTI files.
 
 **Key Statistics:**
+
 | Metric | Count |
 |--------|-------|
 | Subjects | 230 |
@@ -294,6 +295,7 @@ Functional and diffusion modalities (`bold`, `dwi`, `sbref`) support multiple ru
 ### Memory Considerations
 
 NIfTI files are loaded on-demand. For large-scale processing, consider:
+
 ```python
 # Stream without loading all into memory
 for session in ds["train"]:
