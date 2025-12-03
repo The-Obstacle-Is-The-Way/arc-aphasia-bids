@@ -1,51 +1,46 @@
 # Known Bugs & Limitations
 
-## P2: Multiple Run Data Loss
+## P2: Multiple Run Data Loss (CRITICAL)
 **Status**: Open
-**Severity**: Medium (Data Loss)
+**Severity**: High (Data Loss)
 **Location**: `src/arc_bids/arc.py` -> `_find_nifti_in_session`
 
 ### Description
-The ARC dataset contains multiple runs for certain modalities (e.g., BOLD fMRI has ~1,402 files for 850 sessions). The current pipeline design assumes one file per modality per session.
-
-When multiple files match a pattern (e.g., `*bold.nii.gz` matches `run-01_bold.nii.gz` and `run-02_bold.nii.gz`), the code arbitrarily selects the **first match** returned by `pathlib.Path.rglob`.
+The ARC dataset contains multiple runs for certain modalities. The current pipeline **silently drops all runs except the first one**.
 
 ```python
-# src/arc_bids/arc.py
 matches = list(session_dir.rglob(pattern))
 if matches:
-    return str(matches[0].resolve())  # <-- Drops matches[1:]
+    return str(matches[0].resolve())  # <-- SILENT DATA LOSS
 ```
 
 ### Impact
-Approximately ~40% of BOLD fMRI files and ~50% of DWI files (runs 2+) are excluded from the uploaded dataset. The dataset contains only one representative scan per session for each modality.
+**SEVERE**. We are deleting 70% of the diffusion data and 40% of the fMRI data from the dataset.
+*   **BOLD**: 39.4% lost (552 files dropped)
+*   **DWI**: 70.7% lost (1,476 files dropped)
+*   **sbref**: 72.7% lost (234 files dropped)
 
-### Workaround
-No current workaround. Future versions should either:
-1. Change schema to `Sequence(Nifti())` to support multiple runs.
-2. explode the DataFrame to have one row per *run* (e.g., `sub-01_ses-1_run-1`, `sub-01_ses-1_run-2`).
-
-## P3: Validation Tolerance is Loose
+## P3: Unsafe Validation Tolerance
 **Status**: Open
-**Severity**: Low
-**Location**: `src/arc_bids/validation.py` -> `_check_series_count`
-
-### Description
-The validation logic uses a 10% tolerance for file counts to account for potential minor download failures or specific exclusion criteria.
-
-```python
-tolerance = int(expected * 0.1)
-passed = count >= expected - tolerance
-```
-
-This allows up to ~44 missing structural scans or ~85 missing functional scans to pass validation silently.
-
-## P3: Validation Logic Mismatch
-**Status**: Open
-**Severity**: Low
+**Severity**: Medium (Integrity Risk)
 **Location**: `src/arc_bids/validation.py`
 
 ### Description
-`EXPECTED_COUNTS` values for functional data (BOLD, DWI) are based on the number of *sessions* with that modality (from the paper), but the code counts *total files* on disk.
+The validation logic allows **10% of files to be missing** without error.
+```python
+tolerance = int(expected * 0.1) # <-- UNSAFE
+```
+This means up to ~44 structural scans or ~85 functional scans can be missing, and the validator will still say "PASS". This hides download corruption.
 
-Since `Files (1402) > Sessions (850)`, the validation always passes if the full dataset is present. However, it does not strictly validate that *every* expected file is present, only that the total count exceeds the session count.
+## P3: Invalid Validation Metric
+**Status**: Open
+**Severity**: Medium (Logic Error)
+**Location**: `src/arc_bids/validation.py`
+
+### Description
+The code compares "Total Files on Disk" against "Total Sessions in Paper".
+*   Code counts: `1402` (total files)
+*   Paper expects: `850` (sessions)
+*   Result: `1402 > 850` -> PASS.
+
+**This is a logic error.** A user could be missing 500 specific sessions, but because the remaining sessions have multiple runs (pushing the file count high), the validation would falsely pass. It fails to verify that *every session* has data.
