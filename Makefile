@@ -30,7 +30,7 @@ test:
 	uv run pytest
 
 test-cov:
-	uv run pytest --cov=hf_bids_nifti --cov-report=term-missing
+	uv run pytest --cov=arc_bids --cov-report=term-missing
 
 pre-commit:
 	uv run pre-commit run --all-files

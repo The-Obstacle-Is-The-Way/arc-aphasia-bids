@@ -50,7 +50,7 @@ arc-bids build data/openneuro/ds004884 --hf-repo hugging-science/arc-aphasia-bid
 
 #### Output
 
-```
+```text
 Processing ARC dataset from: data/openneuro/ds004884
 Target HF repo: hugging-science/arc-aphasia-bids
 Dry run: False
@@ -117,7 +117,7 @@ arc-bids info
 
 #### Output
 
-```
+```text
 Aphasia Recovery Cohort (ARC)
 ========================================
 OpenNeuro ID: ds004884
