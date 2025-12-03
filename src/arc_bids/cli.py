@@ -101,6 +101,8 @@ def validate(
         0.0,
         "--tolerance",
         "-t",
+        min=0.0,
+        max=1.0,
         help="Allowed fraction of missing files (0.0 to 1.0). Default 0.0 (strict).",
     ),
 ) -> None:

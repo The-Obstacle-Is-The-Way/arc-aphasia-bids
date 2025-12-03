@@ -59,10 +59,11 @@ def _find_single_nifti_in_session(session_dir: Path, pattern: str) -> str | None
         pattern: Glob pattern to match (e.g., "*_T1w.nii.gz").
 
     Returns:
-        Absolute path to the first matching file, or None if not found.
+        Absolute path to the first matching file (sorted by name), or None if not found.
     """
     matches = list(session_dir.rglob(pattern))
     if matches:
+        matches.sort(key=lambda p: p.name)
         return str(matches[0].resolve())
     return None
 
