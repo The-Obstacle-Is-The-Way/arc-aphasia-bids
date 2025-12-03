@@ -175,21 +175,17 @@ ds.reset_format()
 
 ## Step 5: Deep Validation with nibabel
 
-For scientific validation, compare NIfTI headers and voxel data:
+For scientific validation, compare NIfTI headers and voxel data.
+
+**Key insight**: In normal format (not arrow), `Nifti()` features are already decoded to `nibabel.Nifti1Image` objects. We can compare them directly against the original files.
 
 ```python
 import nibabel as nib
 import numpy as np
-from io import BytesIO
-
-def load_nifti_from_bytes(nifti_bytes: bytes) -> nib.Nifti1Image:
-    """Load a NIfTI image from bytes (as stored in HF Dataset)."""
-    # nibabel can load from file-like objects
-    return nib.Nifti1Image.from_bytes(nifti_bytes)
 
 def compare_nifti_images(
-    original_path: Path,
-    downloaded_bytes: bytes,
+    original: nib.Nifti1Image,
+    downloaded: nib.Nifti1Image,
     atol: float = 1e-6,
 ) -> dict:
     """
@@ -197,9 +193,6 @@ def compare_nifti_images(
 
     Returns dict with comparison results.
     """
-    original = nib.load(original_path)
-    downloaded = load_nifti_from_bytes(downloaded_bytes)
-
     result = {
         "shapes_match": original.shape == downloaded.shape,
         "affines_match": np.allclose(original.affine, downloaded.affine, atol=atol),
@@ -216,10 +209,15 @@ def compare_nifti_images(
 
     return result
 
+# Ensure we're in normal format (Nifti() decodes to nibabel objects)
+ds.reset_format()
+
 # Deep validation on a small sample
 deep_sample_size = 5
 for idx in range(deep_sample_size):
     row = ds[idx]
+
+    # row["t1w"] is already a nibabel.Nifti1Image (decoded by Nifti() feature)
     if row["t1w"] is None:
         continue
 
@@ -231,10 +229,13 @@ for idx in range(deep_sample_size):
     if pd.isna(original_row["t1w"]):
         continue
 
-    comparison = compare_nifti_images(
-        Path(original_row["t1w"]),
-        row["t1w"]["bytes"],
-    )
+    # Load original from disk
+    original_img = nib.load(original_row["t1w"])
+
+    # row["t1w"] is already decoded to nibabel object
+    downloaded_img = row["t1w"]
+
+    comparison = compare_nifti_images(original_img, downloaded_img)
 
     if all(comparison.values()):
         print(f"✅ {row['subject_id']}/{row['session_id']} T1w: all checks passed")
