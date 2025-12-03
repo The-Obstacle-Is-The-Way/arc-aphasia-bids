@@ -24,8 +24,9 @@ from tqdm.auto import tqdm
 
 from arc_bids.arc import build_arc_file_table
 
-# Configuration
+# Configuration (per Scientific Data paper: Gibson et al., 2024)
 EXPECTED_SESSIONS = 902
+EXPECTED_SUBJECTS = 230
 BIDS_ROOT = Path("data/openneuro/ds004884")
 HF_REPO = "hugging-science/arc-aphasia-bids"
 SAMPLE_SIZE = 50  # Number of sessions to hash-check
@@ -93,6 +94,11 @@ def main() -> int:
         return 1
     print("✅ All subject/session IDs match")
 
+    # Optional: Verify subject count matches paper
+    subject_count = len(original_table["subject_id"].unique())
+    if subject_count != EXPECTED_SUBJECTS:
+        print(f"⚠️  Warning: Expected {EXPECTED_SUBJECTS} subjects, found {subject_count}")
+
     # Check 4: Sample hash validation
     print(f"\n[4/4] Validating NIfTI hashes ({SAMPLE_SIZE} sessions)...")
 
@@ -109,10 +115,15 @@ def main() -> int:
         subject_id = str(row["subject_id"])
         session_id = str(row["session_id"])
 
-        original_row = original_table[
+        # Defensive check: ensure we find the matching row
+        filtered = original_table[
             (original_table["subject_id"] == subject_id)
             & (original_table["session_id"] == session_id)
-        ].iloc[0]
+        ]
+        if len(filtered) == 0:
+            print(f"   ⚠️  Warning: {subject_id}/{session_id} not found in source")
+            continue
+        original_row = filtered.iloc[0]
 
         # Validate T1w (single file)
         t1w_struct = row["t1w"].as_py()
