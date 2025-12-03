@@ -67,18 +67,17 @@ def main() -> int:
     print("Building original file table from BIDS source...")
     original_table = build_arc_file_table(BIDS_ROOT)
 
-    downloaded_df = ds.to_pandas()
+    # MEMORY-SAFE: Extract IDs by iterating, not loading entire dataset to pandas
+    # (ds.to_pandas() would try to load 293GB into memory → OOM)
+    print("Extracting IDs from HuggingFace dataset (memory-safe iteration)...")
+    downloaded_ids = set()
+    for row in tqdm(ds, desc="Extracting IDs", total=len(ds)):
+        downloaded_ids.add((row["subject_id"], row["session_id"]))
+
     original_ids = set(
         zip(
             original_table["subject_id"],
             original_table["session_id"],
-            strict=True,
-        )
-    )
-    downloaded_ids = set(
-        zip(
-            downloaded_df["subject_id"],
-            downloaded_df["session_id"],
             strict=True,
         )
     )
