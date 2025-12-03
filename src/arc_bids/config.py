@@ -17,7 +17,7 @@ Example:
     my_config = BidsDatasetConfig(
         name="arc",
         bids_root=Path("data/openneuro/ds004884"),
-        default_hf_repo="the-obstacle-is-the-way/arc-aphasia-bids",
+        default_hf_repo="hugging-science/arc-aphasia-bids",
     )
     ```
 """
@@ -53,5 +53,5 @@ class BidsDatasetConfig:
 ARC_CONFIG = BidsDatasetConfig(
     name="arc",
     bids_root=Path("data/openneuro/ds004884"),  # Default local path
-    default_hf_repo="the-obstacle-is-the-way/arc-aphasia-bids",
+    default_hf_repo="hugging-science/arc-aphasia-bids",
 )

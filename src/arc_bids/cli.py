@@ -41,7 +41,7 @@ def build(
         exists=False,  # Don't validate existence; may not be downloaded yet
     ),
     hf_repo: str = typer.Option(
-        "the-obstacle-is-the-way/arc-aphasia-bids",
+        "hugging-science/arc-aphasia-bids",
         "--hf-repo",
         "-r",
         help="HuggingFace dataset repo ID.",

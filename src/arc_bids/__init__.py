@@ -29,7 +29,7 @@ Example:
     # Create HF Dataset
     config = DatasetBuilderConfig(
         bids_root=Path("data/openneuro/ds004884"),
-        hf_repo_id="the-obstacle-is-the-way/arc-aphasia-bids",
+        hf_repo_id="hugging-science/arc-aphasia-bids",
     )
     ds = build_hf_dataset(config, file_table, get_arc_features())
     ```

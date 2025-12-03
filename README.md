@@ -3,7 +3,7 @@
 Upload the **Aphasia Recovery Cohort (ARC)** dataset to HuggingFace Hub.
 
 > **Status**: Phase 0 (Setup & Exploration)
-> **Target HF Repo**: `the-obstacle-is-the-way/arc-aphasia-bids`
+> **Target HF Repo**: `hugging-science/arc-aphasia-bids`
 
 ## What is ARC?
 
@@ -191,7 +191,7 @@ features = Features({
 # Build the dataset
 config = DatasetBuilderConfig(
     bids_root=Path("/path/to/bids"),
-    hf_repo_id="the-obstacle-is-the-way/arc-aphasia-bids",
+    hf_repo_id="hugging-science/arc-aphasia-bids",
     dry_run=True,
 )
 ds = build_hf_dataset(config, file_table, features)

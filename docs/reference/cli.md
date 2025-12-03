@@ -34,7 +34,7 @@ arc-bids build <bids_root> --hf-repo <repo_id> [options]
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--hf-repo`, `-r` | `the-obstacle-is-the-way/arc-aphasia-bids` | HuggingFace repo ID (e.g., `org/dataset-name`) |
+| `--hf-repo`, `-r` | `hugging-science/arc-aphasia-bids` | HuggingFace repo ID (e.g., `org/dataset-name`) |
 | `--dry-run` | `True` | Build dataset locally without pushing to Hub |
 | `--no-dry-run` | - | Explicitly disable dry run (push to Hub) |
 
