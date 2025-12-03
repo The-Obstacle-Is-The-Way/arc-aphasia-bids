@@ -36,14 +36,18 @@
 
 | Column | Type | Nullable | Description |
 |--------|------|----------|-------------|
-| `bold` | `Nifti` | Yes | BOLD fMRI 4D time-series |
+| `bold` | `Nifti` | Yes | BOLD fMRI 4D time-series (first run only) |
+
+> **Note**: If a session contains multiple BOLD runs (e.g., `run-01`, `run-02`), only the **first** run is included. See [BUGS.md](../../BUGS.md) for details.
 
 ### Diffusion Imaging (dwi/)
 
 | Column | Type | Nullable | Description |
 |--------|------|----------|-------------|
-| `dwi` | `Nifti` | Yes | Diffusion-weighted imaging |
-| `sbref` | `Nifti` | Yes | Single-band reference image |
+| `dwi` | `Nifti` | Yes | Diffusion-weighted imaging (first run only) |
+| `sbref` | `Nifti` | Yes | Single-band reference image (first run only) |
+
+> **Note**: If a session contains multiple DWI runs, only the **first** run is included.
 
 ### Derivatives
 
