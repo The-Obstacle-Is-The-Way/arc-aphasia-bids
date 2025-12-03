@@ -21,6 +21,7 @@ This documentation follows the [Diátaxis](https://diataxis.fr/) framework.
 - [Fix OOM Crashes on Large Datasets](how-to/fix-oom-crashes.md)
 - [Fix Empty/Zero-Byte Uploads](how-to/fix-empty-uploads.md)
 - [Validate Before Upload](how-to/validate-before-upload.md)
+- [Validate Download from Hub](how-to/validate-download-from-hub.md)
 
 ---
 
@@ -50,5 +51,6 @@ This documentation follows the [Diátaxis](https://diataxis.fr/) framework.
 | First time? | [Tutorial](tutorials/first-upload.md) |
 | Upload crashing? | [Fix OOM](how-to/fix-oom-crashes.md) |
 | Files are empty? | [Fix Empty Uploads](how-to/fix-empty-uploads.md) |
+| Verify download? | [Validate Download](how-to/validate-download-from-hub.md) |
 | API details? | [Reference](reference/api.md) |
 | Why is this hard? | [Explanation](explanation/why-uploads-fail.md) |

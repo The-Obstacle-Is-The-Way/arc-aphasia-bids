@@ -9,3 +9,6 @@ MD033: false
 
 # Allow first line to not be a heading (we use blockquotes)
 MD041: false
+
+# Disable table column style (consistent style across docs)
+MD060: false
