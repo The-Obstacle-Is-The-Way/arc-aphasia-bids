@@ -178,23 +178,39 @@ def _check_participants_tsv(bids_root: Path) -> ValidationCheck:
     )
 
 
+def _count_sessions_with_modality(bids_root: Path, pattern: str) -> int:
+    """Count number of sessions that contain at least one file matching the pattern."""
+    count = 0
+    # Iterate over all subject/session directories
+    for session_dir in bids_root.glob("sub-*/ses-*"):
+        # Check if this session contains the target file pattern
+        # Use rglob to find files in subdirectories (e.g. func/, dwi/)
+        if list(session_dir.rglob(pattern)):
+            count += 1
+    return count
+
+
 def _check_series_count(
-    bids_root: Path, modality: str, pattern: str, expected_key: str
+    bids_root: Path,
+    modality: str,
+    pattern: str,
+    expected_key: str,
+    tolerance: float = 0.0,
 ) -> ValidationCheck:
-    """Check series count for a specific modality."""
-    files = list(bids_root.rglob(pattern))
-    count = len(files)
+    """Check session count for a specific modality."""
+    # Count sessions with data, not total files
+    count = _count_sessions_with_modality(bids_root, pattern)
     expected = EXPECTED_COUNTS[expected_key]
 
-    # Allow 10% tolerance for minor discrepancies
-    tolerance = int(expected * 0.1)
-    passed = count >= expected - tolerance
+    allowed_missing = int(expected * tolerance)
+    passed = count >= (expected - allowed_missing)
 
     return ValidationCheck(
-        name=f"{modality}_files",
-        expected=f">= {expected - tolerance} (paper: {expected})",
+        name=f"{modality}_sessions",
+        expected=f">= {expected - allowed_missing} (paper: {expected})",
         actual=str(count),
         passed=passed,
+        details=f"Tolerance: {tolerance:.1%}" if tolerance > 0 else "",
     )
 
 
@@ -299,6 +315,7 @@ def validate_arc_download(
     bids_root: Path,
     run_bids_validator: bool = False,
     nifti_sample_size: int = 10,
+    tolerance: float = 0.0,
 ) -> ValidationResult:
     """
     Validate an ARC dataset download.
@@ -315,6 +332,7 @@ def validate_arc_download(
         bids_root: Path to the ARC BIDS dataset root.
         run_bids_validator: If True, run external BIDS validator (slow).
         nifti_sample_size: Number of NIfTI files to spot-check.
+        tolerance: Allowed missing fraction (0.0 to 1.0). Default 0.0 (strict).
 
     Returns:
         ValidationResult with all check outcomes.
@@ -339,14 +357,21 @@ def validate_arc_download(
     result.add(_check_participants_tsv(bids_root))
 
     # Series counts from Sci Data paper
-    result.add(_check_series_count(bids_root, "t1w", "*_T1w.nii.gz", "t1w_series"))
-    result.add(_check_series_count(bids_root, "t2w", "*_T2w.nii.gz", "t2w_series"))
-    result.add(_check_series_count(bids_root, "flair", "*_FLAIR.nii.gz", "flair_series"))
-    result.add(_check_series_count(bids_root, "bold", "*_bold.nii.gz", "bold_series"))
-    result.add(_check_series_count(bids_root, "dwi", "*_dwi.nii.gz", "dwi_series"))
-    result.add(_check_series_count(bids_root, "sbref", "*_sbref.nii.gz", "sbref_series"))
+    # Uses strict session counting with configurable tolerance
+    result.add(_check_series_count(bids_root, "t1w", "*_T1w.nii.gz", "t1w_series", tolerance))
+    result.add(_check_series_count(bids_root, "t2w", "*_T2w.nii.gz", "t2w_series", tolerance))
+    result.add(_check_series_count(bids_root, "flair", "*_FLAIR.nii.gz", "flair_series", tolerance))
+    result.add(_check_series_count(bids_root, "bold", "*_bold.nii.gz", "bold_series", tolerance))
+    result.add(_check_series_count(bids_root, "dwi", "*_dwi.nii.gz", "dwi_series", tolerance))
+    result.add(_check_series_count(bids_root, "sbref", "*_sbref.nii.gz", "sbref_series", tolerance))
     result.add(
-        _check_series_count(bids_root, "lesion", "*_desc-lesion_mask.nii.gz", "lesion_masks")
+        _check_series_count(
+            bids_root,
+            "lesion",
+            "*_desc-lesion_mask.nii.gz",
+            "lesion_masks",
+            tolerance,
+        )
     )
 
     # NIfTI integrity check
