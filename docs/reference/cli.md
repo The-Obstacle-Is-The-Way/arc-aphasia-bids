@@ -83,6 +83,7 @@ arc-bids validate <bids_root> [options]
 |--------|---------|-------------|
 | `--bids-validator/--no-bids-validator` | `False` | Run external BIDS validator (requires npx, slow) |
 | `--sample-size`, `-n` | `10` | Number of NIfTI files to spot-check for integrity |
+| `--tolerance`, `-t` | `0.0` | Allowed fraction of missing files (0.0 to 1.0). Default is strict (0.0) |
 
 #### Validation Checks
 
@@ -95,11 +96,14 @@ arc-bids validate <bids_root> [options]
 #### Example
 
 ```bash
-# Basic validation
+# Basic validation (strict - no missing files allowed)
 arc-bids validate data/openneuro/ds004884
 
 # With NIfTI integrity check on 20 files
 arc-bids validate data/openneuro/ds004884 --sample-size 20
+
+# Allow up to 10% missing files (useful for partial downloads)
+arc-bids validate data/openneuro/ds004884 --tolerance 0.1
 
 # With external BIDS validator (slow)
 arc-bids validate data/openneuro/ds004884 --bids-validator

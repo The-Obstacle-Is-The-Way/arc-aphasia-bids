@@ -27,15 +27,32 @@ import logging
 from pathlib import Path
 
 import pandas as pd
-from datasets import Features, Nifti, Value
+from datasets import Features, Nifti, Sequence, Value
 
 from .core import DatasetBuilderConfig, build_hf_dataset, push_dataset_to_hub
 
 logger = logging.getLogger(__name__)
 
 
-def _find_nifti_in_session(session_dir: Path, pattern: str) -> str | None:
-    """Find a NIfTI file matching a pattern within a session directory.
+def _find_niftis_in_session(session_dir: Path, pattern: str) -> list[str]:
+    """Find ALL NIfTI files matching a pattern within a session directory.
+
+    Args:
+        session_dir: Session directory (e.g., sub-M2001/ses-1).
+        pattern: Glob pattern to match (e.g., "*_bold.nii.gz").
+
+    Returns:
+        List of absolute paths to all matching files, sorted by filename.
+        Empty list if no matches found.
+    """
+    matches = list(session_dir.rglob(pattern))
+    # Sort by filename to ensure consistent ordering (run-01 before run-02)
+    matches.sort(key=lambda p: p.name)
+    return [str(p.resolve()) for p in matches]
+
+
+def _find_single_nifti_in_session(session_dir: Path, pattern: str) -> str | None:
+    """Find a single NIfTI file matching a pattern (for modalities with one file per session).
 
     Args:
         session_dir: Session directory (e.g., sub-M2001/ses-1).
@@ -77,9 +94,9 @@ def build_arc_file_table(bids_root: Path) -> pd.DataFrame:
             - t1w (str | None): Absolute path to T1-weighted NIfTI
             - t2w (str | None): Absolute path to T2-weighted NIfTI
             - flair (str | None): Absolute path to FLAIR NIfTI
-            - bold (str | None): Absolute path to BOLD fMRI NIfTI
-            - dwi (str | None): Absolute path to diffusion-weighted NIfTI
-            - sbref (str | None): Absolute path to single-band reference NIfTI
+            - bold (list[str]): List of absolute paths to ALL BOLD runs
+            - dwi (list[str]): List of absolute paths to ALL DWI runs
+            - sbref (list[str]): List of absolute paths to ALL sbref runs
             - lesion (str | None): Absolute path to lesion mask NIfTI
             - age_at_stroke (float): Subject age at stroke
             - sex (str): Subject sex (M/F)
@@ -105,7 +122,7 @@ def build_arc_file_table(bids_root: Path) -> pd.DataFrame:
     participants = pd.read_csv(participants_tsv, sep="\t")
 
     # Build file table - one row per session
-    rows: list[dict[str, str | float | None]] = []
+    rows: list[dict[str, str | float | list[str] | None]] = []
 
     for _, row in participants.iterrows():
         subject_id = str(row["participant_id"])
@@ -144,24 +161,24 @@ def build_arc_file_table(bids_root: Path) -> pd.DataFrame:
         for session_dir in session_dirs:
             session_id = session_dir.name  # e.g., "ses-1"
 
-            # Find structural modalities in anat/
-            t1w_path = _find_nifti_in_session(session_dir / "anat", "*_T1w.nii.gz")
-            t2w_path = _find_nifti_in_session(session_dir / "anat", "*_T2w.nii.gz")
-            flair_path = _find_nifti_in_session(session_dir / "anat", "*_FLAIR.nii.gz")
+            # Find structural modalities in anat/ (single file per session)
+            t1w_path = _find_single_nifti_in_session(session_dir / "anat", "*_T1w.nii.gz")
+            t2w_path = _find_single_nifti_in_session(session_dir / "anat", "*_T2w.nii.gz")
+            flair_path = _find_single_nifti_in_session(session_dir / "anat", "*_FLAIR.nii.gz")
 
-            # Find functional modalities in func/
-            bold_path = _find_nifti_in_session(session_dir / "func", "*_bold.nii.gz")
+            # Find functional modalities in func/ (ALL runs)
+            bold_paths = _find_niftis_in_session(session_dir / "func", "*_bold.nii.gz")
 
-            # Find diffusion modalities in dwi/
-            dwi_path = _find_nifti_in_session(session_dir / "dwi", "*_dwi.nii.gz")
-            sbref_path = _find_nifti_in_session(session_dir / "dwi", "*_sbref.nii.gz")
+            # Find diffusion modalities in dwi/ (ALL runs)
+            dwi_paths = _find_niftis_in_session(session_dir / "dwi", "*_dwi.nii.gz")
+            sbref_paths = _find_niftis_in_session(session_dir / "dwi", "*_sbref.nii.gz")
 
-            # Find lesion mask in derivatives for this session
+            # Find lesion mask in derivatives for this session (single file)
             lesion_session_dir = (
                 bids_root / "derivatives" / "lesion_masks" / subject_id / session_id
             )
             lesion_path = (
-                _find_nifti_in_session(lesion_session_dir, "*_desc-lesion_mask.nii.gz")
+                _find_single_nifti_in_session(lesion_session_dir, "*_desc-lesion_mask.nii.gz")
                 if lesion_session_dir.exists()
                 else None
             )
@@ -173,9 +190,9 @@ def build_arc_file_table(bids_root: Path) -> pd.DataFrame:
                     "t1w": t1w_path,
                     "t2w": t2w_path,
                     "flair": flair_path,
-                    "bold": bold_path,
-                    "dwi": dwi_path,
-                    "sbref": sbref_path,
+                    "bold": bold_paths,  # List of paths (all runs)
+                    "dwi": dwi_paths,  # List of paths (all runs)
+                    "sbref": sbref_paths,  # List of paths (all runs)
                     "lesion": lesion_path,
                     "age_at_stroke": age_at_stroke,
                     "sex": sex,
@@ -194,32 +211,36 @@ def get_arc_features() -> Features:
     Schema:
         - subject_id: BIDS identifier (e.g., "sub-M2001")
         - session_id: BIDS session identifier (e.g., "ses-1")
-        - t1w: T1-weighted structural MRI (Nifti)
-        - t2w: T2-weighted structural MRI (Nifti, nullable)
-        - flair: FLAIR structural MRI (Nifti, nullable)
-        - bold: BOLD fMRI 4D time-series (Nifti, nullable)
-        - dwi: Diffusion-weighted imaging (Nifti, nullable)
-        - sbref: Single-band reference image (Nifti, nullable)
-        - lesion: Expert-drawn lesion mask (Nifti)
+        - t1w: T1-weighted structural MRI (Nifti, single file)
+        - t2w: T2-weighted structural MRI (Nifti, nullable, single file)
+        - flair: FLAIR structural MRI (Nifti, nullable, single file)
+        - bold: BOLD fMRI 4D time-series (Sequence of Nifti, supports multiple runs)
+        - dwi: Diffusion-weighted imaging (Sequence of Nifti, supports multiple runs)
+        - sbref: Single-band reference images (Sequence of Nifti, supports multiple runs)
+        - lesion: Expert-drawn lesion mask (Nifti, single file)
         - age_at_stroke: Age at time of stroke (float)
         - sex: Biological sex (M/F)
         - wab_aq: WAB Aphasia Quotient (severity score, 0-100)
         - wab_type: Aphasia type classification
 
     Returns:
-        Features object with Nifti() for image columns and Value() for metadata.
+        Features object with Nifti()/Sequence(Nifti()) for image columns.
     """
     return Features(
         {
             "subject_id": Value("string"),
             "session_id": Value("string"),
+            # Structural: single file per session
             "t1w": Nifti(),
             "t2w": Nifti(),
             "flair": Nifti(),
-            "bold": Nifti(),
-            "dwi": Nifti(),
-            "sbref": Nifti(),
+            # Functional/Diffusion: multiple runs per session
+            "bold": Sequence(Nifti()),
+            "dwi": Sequence(Nifti()),
+            "sbref": Sequence(Nifti()),
+            # Derivatives: single file per session
             "lesion": Nifti(),
+            # Metadata
             "age_at_stroke": Value("float32"),
             "sex": Value("string"),
             "wab_aq": Value("float32"),

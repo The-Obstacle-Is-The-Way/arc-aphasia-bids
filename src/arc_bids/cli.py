@@ -97,6 +97,12 @@ def validate(
         "-n",
         help="Number of NIfTI files to spot-check for integrity.",
     ),
+    tolerance: float = typer.Option(
+        0.0,
+        "--tolerance",
+        "-t",
+        help="Allowed fraction of missing files (0.0 to 1.0). Default 0.0 (strict).",
+    ),
 ) -> None:
     """
     Validate an ARC dataset download before pushing to HuggingFace.
@@ -117,6 +123,7 @@ def validate(
         bids_root,
         run_bids_validator=run_bids_validator,
         nifti_sample_size=sample_size,
+        tolerance=tolerance,
     )
 
     typer.echo(result.summary())

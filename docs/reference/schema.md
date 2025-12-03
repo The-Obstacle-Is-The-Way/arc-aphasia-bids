@@ -36,18 +36,18 @@
 
 | Column | Type | Nullable | Description |
 |--------|------|----------|-------------|
-| `bold` | `Nifti` | Yes | BOLD fMRI 4D time-series (first run only) |
+| `bold` | `Sequence(Nifti)` | Yes | List of BOLD fMRI 4D time-series (all runs) |
 
-> **Note**: If a session contains multiple BOLD runs (e.g., `run-01`, `run-02`), only the **first** run is included. See [BUGS.md](../../BUGS.md) for details.
+> **Multi-run support**: Sessions with multiple BOLD runs (e.g., `run-01`, `run-02`) include ALL runs as a list, sorted by filename.
 
 ### Diffusion Imaging (dwi/)
 
 | Column | Type | Nullable | Description |
 |--------|------|----------|-------------|
-| `dwi` | `Nifti` | Yes | Diffusion-weighted imaging (first run only) |
-| `sbref` | `Nifti` | Yes | Single-band reference image (first run only) |
+| `dwi` | `Sequence(Nifti)` | Yes | List of diffusion-weighted images (all runs) |
+| `sbref` | `Sequence(Nifti)` | Yes | List of single-band reference images (all runs) |
 
-> **Note**: If a session contains multiple DWI runs, only the **first** run is included.
+> **Multi-run support**: Sessions with multiple DWI/sbref acquisitions include ALL files as a list.
 
 ### Derivatives
 
@@ -69,26 +69,26 @@
 ## Features Definition
 
 ```python
-from datasets import Features, Value, Nifti
+from datasets import Features, Value, Nifti, Sequence
 
 features = Features({
     # Identifiers
     "subject_id": Value("string"),
     "session_id": Value("string"),
 
-    # Structural imaging
+    # Structural imaging (single file per session)
     "t1w": Nifti(),
     "t2w": Nifti(),
     "flair": Nifti(),
 
-    # Functional imaging
-    "bold": Nifti(),
+    # Functional imaging (multi-run support)
+    "bold": Sequence(Nifti()),
 
-    # Diffusion imaging
-    "dwi": Nifti(),
-    "sbref": Nifti(),
+    # Diffusion imaging (multi-run support)
+    "dwi": Sequence(Nifti()),
+    "sbref": Sequence(Nifti()),
 
-    # Derivatives
+    # Derivatives (single file per session)
     "lesion": Nifti(),
 
     # Demographics
@@ -129,24 +129,27 @@ All NIfTI columns are nullable. A session may not have all modalities:
 ds = load_dataset("hugging-science/arc-aphasia-bids")
 item = ds["train"][0]
 
-# May be None if this session doesn't have T2w
+# Structural: may be None if this session doesn't have T2w
 if item["t2w"] is not None:
     print(item["t2w"].shape)
+
+# Functional/Diffusion: empty list [] if no data for this session
+if item["bold"]:  # Non-empty list
+    print(f"Found {len(item['bold'])} BOLD runs")
 ```
 
 ### Accessing NIfTI Data
 
 ```python
-# Get nibabel image object
+# Structural imaging (single file)
 nifti = item["t1w"]
-
-# Access properties
 print(nifti.shape)      # (256, 256, 176)
 print(nifti.affine)     # 4x4 transformation matrix
-print(nifti.header)     # NIfTI header
-
-# Get numpy array
 data = nifti.get_fdata()
+
+# Functional imaging (list of runs)
+for i, bold_run in enumerate(item["bold"]):
+    print(f"Run {i+1}: shape={bold_run.shape}")
 ```
 
 ---

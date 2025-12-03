@@ -79,12 +79,29 @@ This package includes a validation module:
 ```python
 from arc_bids.validation import validate_arc_download
 
+# Strict validation (default - no missing files allowed)
 result = validate_arc_download(Path("data/openneuro/ds004884"))
+
+# Or with tolerance for partial downloads
+result = validate_arc_download(
+    Path("data/openneuro/ds004884"),
+    tolerance=0.1  # Allow up to 10% missing
+)
 
 if result.all_passed:
     print("Ready for upload!")
 else:
     print(result.summary())
+```
+
+Or via CLI:
+
+```bash
+# Strict validation
+arc-bids validate data/openneuro/ds004884
+
+# With 10% tolerance
+arc-bids validate data/openneuro/ds004884 --tolerance 0.1
 ```
 
 ---

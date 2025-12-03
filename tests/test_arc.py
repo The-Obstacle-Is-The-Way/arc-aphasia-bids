@@ -82,16 +82,30 @@ def synthetic_bids_root() -> Generator[Path, None, None]:
         )
         participants.to_csv(root / "participants.tsv", sep="\t", index=False)
 
-        # sub-M2001 ses-1: FULL modalities (anat + func + dwi)
+        # sub-M2001 ses-1: FULL modalities (anat + func + dwi) with MULTIPLE RUNS
         _create_minimal_nifti(root / "sub-M2001" / "ses-1" / "anat" / "sub-M2001_ses-1_T1w.nii.gz")
         _create_minimal_nifti(root / "sub-M2001" / "ses-1" / "anat" / "sub-M2001_ses-1_T2w.nii.gz")
         _create_minimal_nifti(
             root / "sub-M2001" / "ses-1" / "anat" / "sub-M2001_ses-1_FLAIR.nii.gz"
         )
+        # Multiple BOLD runs (testing multi-run support)
         _create_minimal_nifti(
-            root / "sub-M2001" / "ses-1" / "func" / "sub-M2001_ses-1_task-rest_bold.nii.gz"
+            root / "sub-M2001" / "ses-1" / "func" / "sub-M2001_ses-1_task-rest_run-01_bold.nii.gz"
         )
-        _create_minimal_nifti(root / "sub-M2001" / "ses-1" / "dwi" / "sub-M2001_ses-1_dwi.nii.gz")
+        _create_minimal_nifti(
+            root / "sub-M2001" / "ses-1" / "func" / "sub-M2001_ses-1_task-rest_run-02_bold.nii.gz"
+        )
+        # Multiple DWI runs
+        _create_minimal_nifti(
+            root / "sub-M2001" / "ses-1" / "dwi" / "sub-M2001_ses-1_run-01_dwi.nii.gz"
+        )
+        _create_minimal_nifti(
+            root / "sub-M2001" / "ses-1" / "dwi" / "sub-M2001_ses-1_run-02_dwi.nii.gz"
+        )
+        _create_minimal_nifti(
+            root / "sub-M2001" / "ses-1" / "dwi" / "sub-M2001_ses-1_run-03_dwi.nii.gz"
+        )
+        # Single sbref
         _create_minimal_nifti(root / "sub-M2001" / "ses-1" / "dwi" / "sub-M2001_ses-1_sbref.nii.gz")
 
         # sub-M2001 ses-2: has T1w and T2w only (no FLAIR, no func, no dwi)
@@ -176,13 +190,21 @@ class TestBuildArcFileTable:
         # sub-M2001 ses-1 has ALL modalities: T1w, T2w, FLAIR, bold, dwi, sbref, lesion
         ses1 = df[(df["subject_id"] == "sub-M2001") & (df["session_id"] == "ses-1")].iloc[0]
 
+        # Structural: single paths
         assert ses1["t1w"] is not None
         assert ses1["t2w"] is not None
         assert ses1["flair"] is not None
-        assert ses1["bold"] is not None
-        assert ses1["dwi"] is not None
-        assert ses1["sbref"] is not None
         assert ses1["lesion"] is not None
+
+        # Functional/Diffusion: lists of paths (multi-run support)
+        assert isinstance(ses1["bold"], list)
+        assert len(ses1["bold"]) == 2  # 2 BOLD runs
+        assert isinstance(ses1["dwi"], list)
+        assert len(ses1["dwi"]) == 3  # 3 DWI runs
+        assert isinstance(ses1["sbref"], list)
+        assert len(ses1["sbref"]) == 1  # 1 sbref
+
+        # Metadata
         assert ses1["age_at_stroke"] == 38.0
         assert ses1["sex"] == "F"
         assert ses1["wab_aq"] == 87.1
@@ -197,9 +219,9 @@ class TestBuildArcFileTable:
         assert ses2["t1w"] is not None
         assert ses2["t2w"] is not None
         assert ses2["flair"] is None  # No FLAIR in ses-2
-        assert ses2["bold"] is None  # No func/ in ses-2
-        assert ses2["dwi"] is None  # No dwi/ in ses-2
-        assert ses2["sbref"] is None  # No dwi/ in ses-2
+        assert ses2["bold"] == []  # No func/ in ses-2 (empty list)
+        assert ses2["dwi"] == []  # No dwi/ in ses-2 (empty list)
+        assert ses2["sbref"] == []  # No dwi/ in ses-2 (empty list)
         assert ses2["lesion"] is not None
 
     def test_build_file_table_session_with_minimal_data(self, synthetic_bids_root: Path) -> None:
@@ -211,9 +233,9 @@ class TestBuildArcFileTable:
         assert sub2_ses1["t1w"] is not None
         assert sub2_ses1["t2w"] is None  # No T2w
         assert sub2_ses1["flair"] is None  # No FLAIR
-        assert sub2_ses1["bold"] is None  # No func/
-        assert sub2_ses1["dwi"] is None  # No dwi/
-        assert sub2_ses1["sbref"] is None  # No dwi/
+        assert sub2_ses1["bold"] == []  # No func/ (empty list)
+        assert sub2_ses1["dwi"] == []  # No dwi/ (empty list)
+        assert sub2_ses1["sbref"] == []  # No dwi/ (empty list)
         assert sub2_ses1["lesion"] is not None
 
     def test_build_file_table_no_sessions_excluded(self, synthetic_bids_root: Path) -> None:
@@ -262,16 +284,19 @@ class TestGetArcFeatures:
 
     def test_get_features_has_nifti_columns(self) -> None:
         """Test that ALL Nifti columns are present (FULL dataset)."""
-        from datasets import Nifti
+        from datasets import Nifti, Sequence
 
         features = get_arc_features()
 
+        # Structural: single file per session
         assert isinstance(features["t1w"], Nifti)
         assert isinstance(features["t2w"], Nifti)
         assert isinstance(features["flair"], Nifti)
-        assert isinstance(features["bold"], Nifti)
-        assert isinstance(features["dwi"], Nifti)
-        assert isinstance(features["sbref"], Nifti)
+        # Functional/Diffusion: multiple runs per session (Sequence of Nifti)
+        assert isinstance(features["bold"], Sequence)
+        assert isinstance(features["dwi"], Sequence)
+        assert isinstance(features["sbref"], Sequence)
+        # Derivatives: single file per session
         assert isinstance(features["lesion"], Nifti)
 
     def test_get_features_has_metadata_columns(self) -> None:
