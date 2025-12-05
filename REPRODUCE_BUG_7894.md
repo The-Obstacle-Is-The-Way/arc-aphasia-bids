@@ -102,6 +102,31 @@ See `main` branch for working implementation.
 
 ---
 
+## Alternative: Reproduce with Standard `push_to_hub()`
+
+To prove this is a library bug (not our custom code), you can also reproduce using standard `ds.push_to_hub()`:
+
+```bash
+# After downloading the dataset (step 3 above)
+HF_REPO="YOUR_USERNAME/test-7894" uv run python test_prove_7894_standard.py
+```
+
+This script:
+- Uses **standard `ds.push_to_hub()`** - no custom code
+- Includes `Sequence(Nifti())` columns (bold, dwi, sbref)
+- Crashes at 0% with same symptoms
+
+**Output:**
+```
+Uploading the dataset shards:   0%|          | 0/902 [00:00<?, ? shards/s]
+Map:   0%|          | 0/1 [00:00<?, ? examples/s]
+UserWarning: resource_tracker: There appear to be 1 leaked semaphore objects
+```
+
+This confirms the bug is in the datasets library's `.map(embed_table_storage)` code path, not just our custom uploader.
+
+---
+
 ## Why Synthetic Tests Don't Reproduce This
 
 We tested with small synthetic NIfTI files (2x2x2 voxels, 100 rows) - no crash.
@@ -120,6 +145,7 @@ This is why @lhoestq couldn't reproduce with "a nifti file I found online" - the
 | File | Purpose |
 |------|---------|
 | `src/arc_bids/core.py` | Contains the crash site (line 227-228) |
+| `test_prove_7894_standard.py` | **Standard `push_to_hub()` reproduction** (crashes) |
 | `test_pyarrow_bug.py` | Synthetic test (doesn't crash - too small) |
 | `test_pyarrow_bug_large.py` | Larger synthetic test (still doesn't crash) |
 | `REPRODUCE_BUG_7894.md` | This reproduction guide |
