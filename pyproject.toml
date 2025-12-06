@@ -86,6 +86,6 @@ warn_unused_ignores = true
 
 [tool.uv.sources]
 # Pinned to specific commit for reproducibility. Git main required because:
-# 1. PyPI stable (4.4.1) may not have embed_table_storage fixes for Sequence(Nifti())
-# 2. See UPSTREAM_BUG_ANALYSIS.md for full details on the bugs we work around
+# 1. PyPI stable has embed_table_storage bug causing SIGKILL on Sequence(Nifti()) after ds.shard()
+# 2. See UPSTREAM_BUG.md for details. Remove pin when upstream PR #7896 is merged.
 datasets = { git = "https://github.com/huggingface/datasets.git", rev = "004a5bf4addd9293d6d40f43360c03c8f7e42b28" }
