@@ -190,6 +190,6 @@ See [How-to Guides](../how-to/) for detailed solutions.
 
 ## Next Steps
 
-- [Fix OOM Crashes](../how-to/fix-oom-crashes.md) - If uploading large datasets
+- [Fix Upload Crashes](../how-to/fix-upload-crashes.md) - If uploading large datasets
 - [Validate Before Upload](../how-to/validate-before-upload.md) - Ensure data integrity
 - [Why Uploads Fail](../explanation/why-uploads-fail.md) - Understand the pitfalls

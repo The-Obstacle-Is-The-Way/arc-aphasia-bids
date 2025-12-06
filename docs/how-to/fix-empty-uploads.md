@@ -98,5 +98,5 @@ print(item["t1w"].shape)  # Should show dimensions like (256, 256, 176)
 
 ## Related
 
-- [Fix OOM Crashes](fix-oom-crashes.md) - If upload crashes at 0%
+- [Fix Upload Crashes](fix-upload-crashes.md) - If upload crashes at 0%
 - [Why Uploads Fail](../explanation/why-uploads-fail.md) - Background on these issues

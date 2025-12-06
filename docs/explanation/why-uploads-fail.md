@@ -2,7 +2,8 @@
 
 > Understanding the root causes of upload failures so you can avoid them.
 
-This document explains **why** HuggingFace dataset uploads fail with large NIfTI files. For solutions, see the [How-to Guides](../how-to/).
+This document explains **why** HuggingFace dataset uploads fail with large NIfTI files.
+For solutions, see the [How-to Guides](../how-to/).
 
 ---
 
@@ -50,37 +51,77 @@ For a real neuroimaging dataset:
 
 **The library is tricked into thinking it's uploading 1 MB when it's actually 273 GB.**
 
-### The Fatal Decision
-
-The library uses a heuristic to decide shard count:
-
-```
-If estimated_size < default_shard_size (500 MB):
-    num_shards = 1
-```
-
-Since 1 MB < 500 MB, it creates **one single shard** for the entire dataset.
-
-When embedding starts, it tries to buffer 273 GB into that single shard → OOM crash.
-
 ---
 
-## Why `max_shard_size` Doesn't Help
+## The Sharding Problem
+
+### Why `max_shard_size` Doesn't Help
 
 You might think: "I'll just set `max_shard_size='500MB'`"
 
 This doesn't work because of how size estimation happens:
 
-> "we don't always embed image bytes in the underlying arrow table, which can lead to bad size estimation (we use the first 1000 table rows to estimate the external file size)"
+> "we don't always embed image bytes in the underlying arrow table, which can
+> lead to bad size estimation"
 >
 > — [HuggingFace Issue #5386](https://github.com/huggingface/datasets/issues/5386)
 
-The library samples the first 1000 rows to estimate average row size. But:
+The library samples rows to estimate average size, but:
 - File sizes vary wildly (1.7 MB to 804.8 MB per session in our data)
 - The sample may not be representative
 - External file sizes aren't known until embedding time
 
-**Result**: Shards that are supposed to be 500 MB end up being 2+ GB.
+### Why `num_shards` Alone Doesn't Fix It
+
+Explicit sharding helps but doesn't fix the underlying crash:
+
+```python
+ds.push_to_hub(
+    repo_id,
+    embed_external_files=True,
+    num_shards=902,  # One per session
+)
+```
+
+**This still crashes** due to an upstream bug in `embed_table_storage`.
+
+---
+
+## The Real Bug: Arrow Slice References (huggingface/datasets#7894)
+
+When `ds.shard()` creates a subset, the resulting Arrow table has internal slice
+references. When `embed_table_storage` processes nested types like `Sequence(Nifti())`,
+these references cause a crash at the C++ level.
+
+### Symptoms
+
+- Exit code 137 (SIGKILL)
+- "semaphore leak" warning (symptom, not cause)
+- Crash at 0% on the first shard
+- No Python traceback
+
+### What Triggers It
+
+| Scenario | Result |
+|----------|--------|
+| Single `Nifti()` column | Works |
+| `Sequence(Nifti())` on full dataset | Works |
+| `Sequence(Nifti())` after `ds.shard()` | **CRASHES** |
+
+### The Workaround
+
+Convert shard to pandas and recreate the Dataset:
+
+```python
+shard_df = shard.to_pandas()
+fresh_shard = Dataset.from_pandas(shard_df, preserve_index=False)
+fresh_shard = fresh_shard.cast(ds.features)
+# Now embedding works
+```
+
+This breaks the problematic Arrow slice references.
+
+See [UPSTREAM_BUG.md](/UPSTREAM_BUG.md) for full technical details.
 
 ---
 
@@ -93,92 +134,12 @@ When you call:
 ds.push_to_hub(..., embed_external_files=True)
 ```
 
-The embedding logic fails to properly read and include NIfTI bytes. The upload "succeeds" but parquet files contain no actual image data.
+The embedding logic fails to properly read NIfTI bytes. The upload "succeeds"
+but parquet files contain no actual image data.
 
-**This is a silent failure** - no error is raised. You only discover it when loading the dataset and finding empty files.
+**This is a silent failure** - no error is raised.
 
-The fix exists in the GitHub main branch but hasn't been released to PyPI yet (as of Dec 2025).
-
----
-
-## The Session Size Distribution
-
-Real data from the ARC dataset (902 sessions):
-
-```
-LARGEST SESSIONS:
-  sub-M2168/ses-1148: 804.8 MB (11 files)
-  sub-M2094/ses-4625: 802.7 MB (11 files)
-  sub-M2118/ses-4363: 794.7 MB (9 files)
-
-SMALLEST SESSIONS:
-  sub-M2029/ses-395:  3.8 MB (1 file)
-  sub-M2221/ses-772:  3.4 MB (1 file)
-  sub-M2191/ses-1359: 1.7 MB (2 files)
-
-STATISTICS:
-  Total: 272.8 GB
-  Average: 309.7 MB per session
-  Range: 1.7 MB to 804.8 MB
-```
-
-This 470x variance in session size is why `max_shard_size` fails - no fixed threshold works.
-
----
-
-## Why `num_shards` Alone Doesn't Fix It
-
-You might think explicit sharding fixes the problem:
-
-```python
-ds.push_to_hub(
-    repo_id,
-    embed_external_files=True,
-    num_shards=902,  # One per session
-)
-```
-
-**This still crashes.** The deeper issue is in `datasets`' internal `_push_parquet_shards_to_hub` function:
-
-```python
-# Inside datasets library (arrow_dataset.py)
-additions = []
-for shard in shards:
-    parquet_content = shard.to_parquet_bytes()  # ~300 MB bytes
-    shard_addition = CommitOperationAdd(path_or_fileobj=parquet_content)
-    api.preupload_lfs_files(additions=[shard_addition])
-    additions.append(shard_addition)  # <-- THE BUG: keeps bytes in memory
-```
-
-Even with 902 shards, the library accumulates ALL shard bytes in the `additions` list, never releasing them. Result: 902 × 300 MB = ~270 GB RAM → OOM.
-
-See [OOM Root Cause Analysis](oom-root-cause.md) for the full technical breakdown.
-
-## The Real Solution: Custom Memory-Safe Uploader
-
-The `arc-bids` package implements a custom uploader that bypasses **two upstream bugs**:
-
-### Bug 1: Memory Accumulation
-1. **Process one shard at a time**
-2. **Write to temporary Parquet file on disk**
-3. **Upload via `HfApi.upload_file(path=...)` - streams from disk**
-4. **Delete temp file before next iteration**
-
-Memory usage is now **constant** (~1 GB) instead of **linear** (270 GB).
-
-### Bug 2: Arrow Crash on Sharded Datasets
-Even with Bug 1 fixed, `embed_table_storage` crashes on shards with `Sequence(Nifti())` columns due to internal Arrow references. The fix is to convert the shard to pandas and recreate the Dataset:
-
-```python
-shard_df = shard.to_pandas()
-fresh_shard = Dataset.from_pandas(shard_df, preserve_index=False)
-fresh_shard = fresh_shard.cast(ds.features)
-# Now embedding works
-```
-
-See [UPSTREAM_BUG_ANALYSIS.md](/UPSTREAM_BUG_ANALYSIS.md) for full details.
-
-See [Fix OOM Crashes](../how-to/fix-oom-crashes.md) for usage
+The fix exists in the GitHub main branch but hasn't been released to PyPI yet.
 
 ---
 
@@ -186,23 +147,22 @@ See [Fix OOM Crashes](../how-to/fix-oom-crashes.md) for usage
 
 | Failure | Root Cause | Fix |
 |---------|------------|-----|
-| OOM at 0% | Size estimation from paths, not bytes | `num_shards=N` |
+| SIGKILL at 0% | Arrow slice references in sharded datasets | Pandas round-trip workaround |
 | Empty files | Bug in stable `datasets` release | Install from git |
 | Huge shards | `max_shard_size` uses bad estimates | Use `num_shards` instead |
-| Silent failures | No validation before upload | Test locally first |
 
 ---
 
 ## References
 
-- [HuggingFace Issue #5386](https://github.com/huggingface/datasets/issues/5386): `max_shard_size` breaks with large files
-- [HuggingFace Issue #5990](https://github.com/huggingface/datasets/issues/5990): Large dataset uploads hang
-- [HuggingFace Forum](https://discuss.huggingface.co/t/any-workaround-for-push-to-hub-limits/59274): push_to_hub limits discussion
+- [huggingface/datasets#7894](https://github.com/huggingface/datasets/issues/7894): The Arrow slice crash bug
+- [huggingface/datasets#5386](https://github.com/huggingface/datasets/issues/5386): `max_shard_size` issues
+- [UPSTREAM_BUG.md](/UPSTREAM_BUG.md): Our detailed bug analysis
 
 ---
 
 ## Related
 
-- [Fix OOM Crashes](../how-to/fix-oom-crashes.md) - The solution
+- [Fix Upload Crashes](../how-to/fix-upload-crashes.md) - The solution
 - [Fix Empty Uploads](../how-to/fix-empty-uploads.md) - The other major pitfall
 - [Architecture Decisions](architecture.md) - Why we designed it this way

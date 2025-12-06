@@ -18,7 +18,7 @@ This documentation follows the [Diátaxis](https://diataxis.fr/) framework.
 
 **Task-oriented:** Solve specific problems
 
-- [Fix OOM Crashes on Large Datasets](how-to/fix-oom-crashes.md)
+- [Fix Upload Crashes on Large Datasets](how-to/fix-upload-crashes.md)
 - [Fix Empty/Zero-Byte Uploads](how-to/fix-empty-uploads.md)
 - [Validate Before Upload](how-to/validate-before-upload.md)
 - [Validate Download from Hub](how-to/validate-download-from-hub.md)
@@ -49,7 +49,7 @@ This documentation follows the [Diátaxis](https://diataxis.fr/) framework.
 | Task | Go to |
 |------|-------|
 | First time? | [Tutorial](tutorials/first-upload.md) |
-| Upload crashing? | [Fix OOM](how-to/fix-oom-crashes.md) |
+| Upload crashing? | [Fix Upload Crashes](how-to/fix-upload-crashes.md) |
 | Files are empty? | [Fix Empty Uploads](how-to/fix-empty-uploads.md) |
 | Verify download? | [Validate Download](how-to/validate-download-from-hub.md) |
 | API details? | [Reference](reference/api.md) |
