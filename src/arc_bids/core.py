@@ -39,7 +39,6 @@ Example usage:
     ```
 """
 
-import gc
 import logging
 import tempfile
 from dataclasses import dataclass
@@ -171,10 +170,10 @@ def push_dataset_to_hub(
     """
     Push a dataset to the Hugging Face Hub.
 
-    This custom implementation supports memory-efficient sharded uploads for large
-    datasets (like ARC-BIDS) where standard `push_to_hub` causes OOM.
-    It bypasses the `datasets` library's accumulation of byte-strings in memory
-    by manually sharding, embedding, and uploading via `HfApi`.
+    This custom implementation supports sharded uploads for large datasets
+    (like ARC-BIDS) and includes a workaround for huggingface/datasets#7894
+    where `embed_table_storage` crashes on sharded `Sequence()` nested types.
+    See: https://github.com/huggingface/datasets/issues/7894
 
     Assumes the user has already authenticated via `huggingface-cli login`
     or has set the HF_TOKEN environment variable.
@@ -222,14 +221,12 @@ def push_dataset_to_hub(
             local_parquet_path = tmp_path / shard_fname
 
             if embed_external_files:
-                # CRITICAL FIX: Convert shard to pandas and back to break internal
-                # Arrow references that cause crashes in embed_table_storage.
-                # See UPSTREAM_BUG_ANALYSIS.md for full explanation.
-                #
-                # The issue: ds.shard() creates a view with internal state that
-                # causes embed_table_storage to crash (SIGKILL) on Sequence(Nifti())
-                # columns. Converting to pandas and recreating the Dataset breaks
-                # these problematic references.
+                # WORKAROUND for huggingface/datasets#7894:
+                # ds.shard() creates Arrow table slices that crash embed_table_storage
+                # with SIGKILL on Sequence(Nifti()) columns. Converting to pandas and
+                # back breaks the problematic slice references.
+                # Remove this workaround when upstream PR #7896 is merged.
+                # See: https://github.com/huggingface/datasets/issues/7894
                 shard_df = shard.to_pandas()
                 fresh_shard = Dataset.from_pandas(shard_df, preserve_index=False)
                 fresh_shard = fresh_shard.cast(ds.features)
@@ -266,10 +263,8 @@ def push_dataset_to_hub(
             # Cleanup immediately to save disk space
             local_parquet_path.unlink()
 
-            # Explicitly delete shard and force garbage collection to reclaim memory
-            # before processing next shard (critical for 270GB+ datasets)
+            # Delete shard reference to allow garbage collection
             del shard
-            gc.collect()
 
         # 2. Upload Metadata (dataset_info.json)
         logger.info("Generating and uploading dataset info...")
