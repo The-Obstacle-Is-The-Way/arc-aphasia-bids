@@ -23,7 +23,7 @@ Multi-center longitudinal multimodal acute ischemic stroke training dataset from
 
 - **Source:** [Zenodo Record 17652035](https://zenodo.org/records/17652035) (v7, November 2025)
 - **Challenge:** [ISLES 2024](https://isles-24.grand-challenge.org/)
-- **Paper:** [Riedel et al., arXiv:2408.09259](https://arxiv.org/abs/2408.09259)
+- **Paper:** [Riedel et al., arXiv:2408.11142](https://arxiv.org/abs/2408.11142)
 - **License:** CC BY-NC-SA 4.0
 - **Size:** 99 GB (compressed)
 
@@ -87,7 +87,7 @@ print(example["nihss_admission"]) # Stroke severity score
 
 ## Data Organization
 
-The source data follows BIDS structure:
+The source data follows BIDS structure. Filenames shown are illustrative and follow the BIDS naming pattern used in the archive:
 
 ```
 raw_data/
@@ -140,7 +140,7 @@ When using this dataset, please cite:
           Su, Ruisheng and Zimmer, Claus and Boeckh-Behrens, Tobias and
           Berndt, Maria and Menze, Bjoern and Rueckert, Daniel and
           Wiestler, Benedikt and Wegener, Susanne and Kirschke, Jan Stefan},
-  journal={arXiv preprint arXiv:2408.09259},
+  journal={arXiv preprint arXiv:2408.11142},
   year={2024}
 }
 
@@ -171,6 +171,5 @@ If using Circle of Willis masks, also cite:
 
 - [ISLES 2024 Challenge](https://isles-24.grand-challenge.org/)
 - [Zenodo Dataset (DOI: 10.5281/zenodo.17652035)](https://doi.org/10.5281/zenodo.17652035)
-- [Dataset Paper (arXiv:2408.09259)](https://arxiv.org/abs/2408.09259)
+- [Dataset Paper (arXiv:2408.11142)](https://arxiv.org/abs/2408.11142)
 - [Challenge Paper (arXiv:2408.10966)](https://arxiv.org/abs/2408.10966)
-- [Updated Dataset Preprint (arXiv:2408.11142)](https://arxiv.org/abs/2408.11142)
