@@ -35,6 +35,8 @@ Multi-center longitudinal multimodal acute ischemic stroke training dataset from
 - **Clinical data:** Demographics, patient history, admission NIHSS, 3-month mRS outcomes
 - **Annotations:** Infarct masks, large vessel occlusion masks, Circle of Willis anatomy
 
+> **Note:** The ISLES'24 paper describes a training set of 150 cases; the Zenodo v7 training archive contains 149 publicly released subjects.
+
 ## Dataset Structure
 
 ### Imaging Modalities
@@ -157,13 +159,13 @@ When using this dataset, please cite:
 If using Circle of Willis masks, also cite:
 
 ```bibtex
-@article{yang2024benchmarking,
+@article{yang2023benchmarking,
   title={Benchmarking the CoW with the TopCoW Challenge: Topology-Aware Anatomical
          Segmentation of the Circle of Willis for CTA and MRA},
   author={Yang, Kaiyuan and Musio, Fabio and Ma, Yue and Juchler, Norman and
           Paetzold, Johannes C and Al-Maskari, Rami and others and Menze, Bjoern},
-  journal={arXiv preprint arXiv:2312},
-  year={2024}
+  journal={arXiv preprint arXiv:2312.17670},
+  year={2023}
 }
 ```
 
