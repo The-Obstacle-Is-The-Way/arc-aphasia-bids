@@ -90,18 +90,23 @@ def check_count(
     expected: int,
     tolerance: float = 0.0,
 ) -> ValidationCheck:
-    """Generic count check with optional tolerance."""
+    """
+    Generic count check with optional tolerance.
+
+    Uses minimum-threshold logic: passes if actual >= expected * (1 - tolerance).
+    For strict equality checks, use tolerance=0.0.
+
+    Args:
+        name: Check name for reporting.
+        actual: Actual count found.
+        expected: Expected count.
+        tolerance: Allowed missing fraction (0.0 to 1.0).
+
+    Returns:
+        ValidationCheck with pass/fail status.
+    """
     allowed_missing = int(expected * tolerance)
     passed = actual >= (expected - allowed_missing)
-    # Also allow for slight overages if tolerance is used (e.g. subject count)
-    # But mainly we care about under-counts for series.
-    # For subject counts, strict equality + small delta is usually better,
-    # but here we use the generic tolerance logic.
-    # If tolerance is 0, strict >= match (or exact? existing arc code was strict >= for series)
-    # Let's align with the Series logic: actual >= expected - tolerance.
-    # But wait, existing ARC subject check used `abs(count - expected) <= 5`.
-    # We might need a flag or separate helper for "approximate match" vs "minimum count".
-    # For now, let's implement the logic used for Series (minimum threshold).
 
     return ValidationCheck(
         name=name,
@@ -251,21 +256,9 @@ def _check_bids_validator(bids_root: Path) -> ValidationCheck | None:
                 details=result.stderr[:200] if result.stderr else "",
             )
     except subprocess.TimeoutExpired:
-        return ValidationCheck(
-            name="bids_validator",
-            expected="valid BIDS",
-            actual="timeout",
-            passed=True,
-            details="Skipped due to timeout",
-        )
-    except (subprocess.SubprocessError, OSError) as e:
-        return ValidationCheck(
-            name="bids_validator",
-            expected="valid BIDS",
-            actual=f"error: {e}",
-            passed=True,
-            details="Skipped due to validator error",
-        )
+        return None  # Validator timed out, skip check
+    except (subprocess.SubprocessError, OSError):
+        return None  # Validator errored, skip check
 
 
 def _count_sessions_with_modality(bids_root: Path, pattern: str) -> int:
