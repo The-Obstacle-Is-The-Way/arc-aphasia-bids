@@ -46,9 +46,9 @@ dev = [
 bids-hub = "bids_hub.cli:app"
 
 [project.urls]
-Homepage = "https://github.com/The-Obstacle-Is-The-Way/arc-aphasia-bids"
-Repository = "https://github.com/The-Obstacle-Is-The-Way/arc-aphasia-bids"
-Issues = "https://github.com/The-Obstacle-Is-The-Way/arc-aphasia-bids/issues"
+Homepage = "https://github.com/The-Obstacle-Is-The-Way/bids-hub"
+Repository = "https://github.com/The-Obstacle-Is-The-Way/bids-hub"
+Issues = "https://github.com/The-Obstacle-Is-The-Way/bids-hub/issues"
 
 [build-system]
 requires = ["hatchling"]

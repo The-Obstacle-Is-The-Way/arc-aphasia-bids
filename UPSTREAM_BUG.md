@@ -14,7 +14,7 @@ containing `Sequence()` nested types like `Sequence(Nifti())`.
 |------|------|
 | Issue | https://github.com/huggingface/datasets/issues/7894 |
 | Fix PR | https://github.com/huggingface/datasets/pull/7896 |
-| Reproduction | https://github.com/The-Obstacle-Is-The-Way/arc-aphasia-bids/tree/sandbox/reproduce-bug-7894 |
+| Reproduction | https://github.com/The-Obstacle-Is-The-Way/bids-hub/tree/sandbox/reproduce-bug-7894 |
 
 ---
 
