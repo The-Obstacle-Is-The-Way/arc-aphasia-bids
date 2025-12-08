@@ -487,17 +487,17 @@ def validate_isles(
 
 ## Success Criteria
 
-- [ ] `from bids_hub.validation import validate_arc_download` works
-- [ ] `from bids_hub.validation import validate_isles24_download` works
-- [ ] `from bids_hub.validation import verify_md5` works
-- [ ] `from bids_hub.validation import check_phenotype_readable` works
-- [ ] `bids-hub arc validate` works
-- [ ] `bids-hub isles24 validate` works
-- [ ] All existing tests pass
-- [ ] New ISLES24 validation tests pass
-- [ ] **All logic from `scripts/validate_isles24_download.py` is ported** (critical for Phase 03)
-- [ ] mypy passes
-- [ ] ruff passes
+- [x] `from bids_hub.validation import validate_arc_download` works
+- [x] `from bids_hub.validation import validate_isles24_download` works
+- [x] `from bids_hub.validation import verify_md5` works
+- [x] `from bids_hub.validation import check_phenotype_readable` works
+- [x] `bids-hub arc validate` works
+- [x] `bids-hub isles24 validate` works
+- [x] All existing tests pass (68 tests)
+- [x] New ISLES24 validation tests pass (7 tests in tests/validation/test_isles24.py)
+- [x] **All logic from `scripts/validate_isles24_download.py` is ported** (critical for Phase 03)
+- [x] mypy passes (19 source files)
+- [x] ruff passes
 
 ---
 

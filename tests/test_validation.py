@@ -94,9 +94,9 @@ def test_validate_arc_download_mock_structure(mock_bids_root: Path) -> None:
     # Run with strict validation (tolerance=0.0)
     result = validate_arc_download(mock_bids_root, tolerance=0.0)
 
-    # Required files should pass
-    bids_check = next(c for c in result.checks if c.name == "bids_required_files")
-    assert bids_check.passed is True
+    # Required files should pass (generic framework uses "required_files" name)
+    required_check = next(c for c in result.checks if c.name == "required_files")
+    assert required_check.passed is True
 
     # Subject count should fail (only 2 vs expected ~230)
     subject_check = next(c for c in result.checks if c.name == "subjects")
@@ -104,7 +104,8 @@ def test_validate_arc_download_mock_structure(mock_bids_root: Path) -> None:
     assert "2" in subject_check.actual
 
     # T1w count should fail (2 vs expected 441)
-    t1w_check = next(c for c in result.checks if c.name == "t1w_sessions")
+    # Generic framework uses "{modality}_count" naming
+    t1w_check = next(c for c in result.checks if c.name == "t1w_count")
     assert t1w_check.passed is False
     assert "2" in t1w_check.actual
 
