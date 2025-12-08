@@ -10,7 +10,8 @@ Usage:
     bids-hub arc build data/openneuro/ds004884 --dry-run
     bids-hub arc info
 
-    # ISLES24 Commands (validate coming in Phase 02)
+    # ISLES24 Commands
+    bids-hub isles24 validate data/zenodo/isles24/train
     bids-hub isles24 build data/zenodo/isles24/train --dry-run
     bids-hub isles24 info
 
@@ -25,7 +26,7 @@ import typer
 from .arc import build_and_push_arc
 from .core import DatasetBuilderConfig
 from .isles24 import build_and_push_isles24
-from .validation import validate_arc_download
+from .validation import validate_arc_download, validate_isles24_download
 
 app = typer.Typer(
     name="bids-hub",
@@ -214,6 +215,54 @@ def build_isles(
         typer.echo("Dry run complete. Dataset built but not pushed.")
     else:
         typer.echo(f"Dataset pushed to: https://huggingface.co/datasets/{hf_repo}")
+
+
+@isles_app.command("validate")
+def validate_isles(
+    bids_root: Path = typer.Argument(
+        ...,
+        help="Path to ISLES'24 root directory (e.g., train/).",
+    ),
+    sample_size: int = typer.Option(
+        10,
+        "--sample-size",
+        "-n",
+        help="Number of NIfTI files to spot-check for integrity.",
+    ),
+    tolerance: float = typer.Option(
+        0.1,
+        "--tolerance",
+        "-t",
+        min=0.0,
+        max=1.0,
+        help="Allowed fraction of missing files (0.0 to 1.0). Default 0.1 (10%).",
+    ),
+) -> None:
+    """
+    Validate an ISLES24 dataset download.
+
+    Checks:
+    - Zero-byte file detection (fast corruption check)
+    - Required files exist (clinical_data-description.xlsx)
+    - Required directories exist (raw_data/, derivatives/, phenotype/)
+    - Subject count matches expected (~149 from Zenodo v7)
+    - Modality counts match expected (NCCT, CTA, DWI, lesion masks)
+    - Sample NIfTI files are loadable with nibabel
+    - Phenotype XLSX files are readable
+
+    Example:
+        bids-hub isles24 validate data/zenodo/isles24/train
+    """
+    result = validate_isles24_download(
+        bids_root,
+        nifti_sample_size=sample_size,
+        tolerance=tolerance,
+    )
+
+    typer.echo(result.summary())
+
+    if not result.all_passed:
+        raise typer.Exit(code=1)
 
 
 @isles_app.command("info")
