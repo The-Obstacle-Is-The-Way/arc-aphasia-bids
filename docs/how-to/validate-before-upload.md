@@ -142,5 +142,6 @@ for path in sample:
 
 ## Related
 
-- [Tutorial: First Upload](../tutorials/first-upload.md) - Complete walkthrough
+- [Tutorial: Upload ARC](../tutorials/upload-arc.md) - Complete walkthrough for ARC
+- [Tutorial: Upload ISLES24](../tutorials/upload-isles24.md) - Complete walkthrough for ISLES24
 - [Fix Empty Uploads](fix-empty-uploads.md) - If validation passes but upload is broken

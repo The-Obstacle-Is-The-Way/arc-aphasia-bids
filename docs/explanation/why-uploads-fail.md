@@ -163,6 +163,5 @@ The fix exists in the GitHub main branch but hasn't been released to PyPI yet.
 
 ## Related
 
-- [Fix Upload Crashes](../how-to/fix-upload-crashes.md) - The solution
 - [Fix Empty Uploads](../how-to/fix-empty-uploads.md) - The other major pitfall
-- [Architecture Decisions](architecture.md) - Why we designed it this way
+- [UPSTREAM_BUG.md](/UPSTREAM_BUG.md) - Full technical details on the workaround

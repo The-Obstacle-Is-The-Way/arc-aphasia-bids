@@ -48,10 +48,8 @@ uv run bids-hub isles24 build data/zenodo/isles24/train --no-dry-run
 ### How-to Guides
 **Task-oriented:** Solve specific problems
 
-- [Fix Upload Crashes on Large Datasets](how-to/fix-upload-crashes.md)
 - [Fix Empty/Zero-Byte Uploads](how-to/fix-empty-uploads.md)
 - [Validate Before Upload](how-to/validate-before-upload.md)
-- [Validate Download from Hub](how-to/validate-download-from-hub.md)
 
 ### Reference
 **Information-oriented:** Technical specifications
