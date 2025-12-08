@@ -3,6 +3,7 @@
 ## Summary
 
 Validation scripts incorrectly extract scalar values from Arrow-formatted dataset rows, causing:
+
 1. Subject ID lookup failures (observed)
 2. Latent crash on modality access (hidden by bug #1)
 
@@ -40,7 +41,7 @@ print(str(row["subject_id"]))       # "[\n  [\n    \"sub-stroke0001\"\n  ]\n]"
 
 ### Observed Output
 
-```
+```text
 ⚠️  Warning: [
   [
     "sub-stroke0001"
@@ -49,6 +50,7 @@ print(str(row["subject_id"]))       # "[\n  [\n    \"sub-stroke0001\"\n  ]\n]"
 ```
 
 The string comparison `original_table["subject_id"] == subject_id` fails because:
+
 - `subject_id` = `'[\n  [\n    "sub-stroke0001"\n  ]\n]'` (malformed)
 - Expected = `'sub-stroke0001'` (correct)
 
@@ -70,6 +72,7 @@ The string comparison `original_table["subject_id"] == subject_id` fails because
 | `scripts/validate_hf_download.py` | 140 | `bold_list = row["bold"].as_py()` |
 
 **Critical**: `ChunkedArray` does NOT have `.as_py()` method - it throws `AttributeError`:
+
 ```python
 >>> row["ncct"].as_py()
 AttributeError: 'pyarrow.lib.ChunkedArray' object has no attribute 'as_py'
@@ -131,6 +134,7 @@ bold_list = row["bold"].to_pylist()[0]
 ## Why `.to_pylist()[0]` and not `[0].as_py()`?
 
 Both work, but `.to_pylist()[0]` is preferred because:
+
 1. **Explicit**: Clearly shows we're converting Arrow → Python list → element
 2. **Consistent**: Works identically for all column types (string, struct, list)
 3. **Safe**: `[0]` on ChunkedArray accesses chunk 0, not element 0 in some PyArrow versions
@@ -140,18 +144,24 @@ Both work, but `.to_pylist()[0]` is preferred because:
 After fix, re-run validation and verify:
 
 ### ISLES24 (`validate_isles24_hf_upload.py`)
+
 ```bash
 uv run python scripts/validate_isles24_hf_upload.py
 ```
+
 Expected:
+
 - No "Warning: ... not found in source" messages
 - "✅ All 150 sampled NIfTIs have matching hashes" (not "0 sampled")
 
 ### ARC (`validate_hf_download.py`)
+
 ```bash
 uv run python scripts/validate_hf_download.py
 ```
+
 Expected:
+
 - No warnings about missing subject/session IDs
 - Actual hash count > 0
 
@@ -177,5 +187,5 @@ row["ncct"].to_pylist()[0]        # Returns {'bytes': ..., 'path': ...} (CORRECT
 
 ## Related
 
-- HuggingFace `datasets` library Arrow format: https://huggingface.co/docs/datasets/use_with_pytorch#format-type
-- PyArrow ChunkedArray: https://arrow.apache.org/docs/python/generated/pyarrow.ChunkedArray.html
+- [HuggingFace datasets library Arrow format](https://huggingface.co/docs/datasets/use_with_pytorch#format-type)
+- [PyArrow ChunkedArray](https://arrow.apache.org/docs/python/generated/pyarrow.ChunkedArray.html)
