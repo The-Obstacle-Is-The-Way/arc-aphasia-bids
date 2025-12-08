@@ -23,6 +23,8 @@ The ARC dataset contains:
 - Demographic and clinical metadata (age, sex, WAB-AQ scores)
 """
 
+from __future__ import annotations
+
 import logging
 from pathlib import Path
 
@@ -142,14 +144,11 @@ def build_arc_file_table(bids_root: Path) -> pd.DataFrame:
             sbref_paths = find_all_niftis(session_dir / "dwi", "*_sbref.nii.gz")
 
             # Find lesion mask in derivatives for this session (single file)
+            # Note: find_single_nifti already handles missing directories
             lesion_session_dir = (
                 bids_root / "derivatives" / "lesion_masks" / subject_id / session_id
             )
-            lesion_path = (
-                find_single_nifti(lesion_session_dir, "*_desc-lesion_mask.nii.gz")
-                if lesion_session_dir.exists()
-                else None
-            )
+            lesion_path = find_single_nifti(lesion_session_dir, "*_desc-lesion_mask.nii.gz")
 
             rows.append(
                 {

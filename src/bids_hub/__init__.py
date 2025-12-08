@@ -1,5 +1,7 @@
 """bids_hub - Upload neuroimaging datasets to HuggingFace Hub."""
 
+from __future__ import annotations
+
 # Core (generic)
 from .core import DatasetBuilderConfig, build_hf_dataset, push_dataset_to_hub
 
