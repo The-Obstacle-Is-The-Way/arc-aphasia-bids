@@ -1,5 +1,5 @@
 """
-arc_bids - Upload the Aphasia Recovery Cohort (ARC) to HuggingFace Hub.
+bids_hub - Upload the Aphasia Recovery Cohort (ARC) to HuggingFace Hub.
 
 This package converts the ARC BIDS dataset (OpenNeuro ds004884) into a
 HuggingFace Dataset with NIfTI and tabular features.
@@ -16,7 +16,7 @@ Workflow:
 Example:
     ```python
     from pathlib import Path
-    from arc_bids import (
+    from bids_hub import (
         DatasetBuilderConfig,
         build_arc_file_table,
         build_hf_dataset,

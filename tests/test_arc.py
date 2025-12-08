@@ -14,12 +14,12 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from arc_bids.arc import (
+from bids_hub.arc import (
     build_and_push_arc,
     build_arc_file_table,
     get_arc_features,
 )
-from arc_bids.core import DatasetBuilderConfig
+from bids_hub.core import DatasetBuilderConfig
 
 
 def _create_minimal_nifti(path: Path) -> None:
@@ -324,7 +324,7 @@ class TestBuildAndPushArc:
             dry_run=True,
         )
 
-        with patch("arc_bids.arc.build_hf_dataset") as mock_build:
+        with patch("bids_hub.arc.build_hf_dataset") as mock_build:
             mock_build.return_value = None
             build_and_push_arc(config)
             mock_build.assert_called_once()
@@ -340,8 +340,8 @@ class TestBuildAndPushArc:
         )
 
         with (
-            patch("arc_bids.arc.build_hf_dataset") as mock_build,
-            patch("arc_bids.arc.push_dataset_to_hub") as mock_push,
+            patch("bids_hub.arc.build_hf_dataset") as mock_build,
+            patch("bids_hub.arc.push_dataset_to_hub") as mock_push,
         ):
             mock_build.return_value = MagicMock()
             build_and_push_arc(config)

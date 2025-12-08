@@ -22,7 +22,7 @@ import pandas as pd
 from datasets import load_dataset
 from tqdm.auto import tqdm
 
-from arc_bids.arc import build_arc_file_table
+from bids_hub.arc import build_arc_file_table
 
 # Configuration (per Scientific Data paper: Gibson et al., 2024)
 EXPECTED_SESSIONS = 902

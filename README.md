@@ -1,4 +1,4 @@
-# arc-bids
+# bids-hub
 
 Upload the **Aphasia Recovery Cohort (ARC)** dataset to HuggingFace Hub.
 
@@ -51,10 +51,10 @@ HF Hub (via XET storage)
 
 | Module | Purpose |
 |--------|---------|
-| `src/arc_bids/core.py` | Generic BIDS→HF Dataset conversion |
-| `src/arc_bids/arc.py` | ARC dataset builder (file table + HF features) |
-| `src/arc_bids/validation.py` | Download integrity validation |
-| `src/arc_bids/cli.py` | Typer CLI |
+| `src/bids_hub/core.py` | Generic BIDS→HF Dataset conversion |
+| `src/bids_hub/arc.py` | ARC dataset builder (file table + HF features) |
+| `src/bids_hub/validation.py` | Download integrity validation |
+| `src/bids_hub/cli.py` | Typer CLI |
 | `scripts/download_arc.sh` | Download ARC from OpenNeuro |
 
 ## Quickstart
@@ -71,19 +71,19 @@ uv sync --all-extras
 uv run pytest
 
 # See CLI help
-uv run arc-bids --help
+uv run bids-hub --help
 
 # Show dataset info
-uv run arc-bids info
+uv run bids-hub info
 
 # Download ARC dataset
 ./scripts/download_arc.sh
 
 # Validate download integrity
-uv run arc-bids validate data/openneuro/ds004884
+uv run bids-hub validate data/openneuro/ds004884
 
 # Build dataset (dry run):
-uv run arc-bids build data/openneuro/ds004884 --dry-run
+uv run bids-hub build data/openneuro/ds004884 --dry-run
 ```
 
 ## Downloading ARC
@@ -118,7 +118,7 @@ openneuro download ds004884 data/openneuro/ds004884
 Before pushing to HuggingFace, validate your download to ensure data integrity:
 
 ```bash
-uv run arc-bids validate data/openneuro/ds004884
+uv run bids-hub validate data/openneuro/ds004884
 ```
 
 This checks:
@@ -132,14 +132,14 @@ This checks:
 For optional BIDS validator integration (slower but more thorough):
 
 ```bash
-uv run arc-bids validate data/openneuro/ds004884 --bids-validator
+uv run bids-hub validate data/openneuro/ds004884 --bids-validator
 ```
 
 ## Project Structure
 
 ```text
 arc-aphasia-bids/
-├── src/arc_bids/
+├── src/bids_hub/
 │   ├── __init__.py      # Package exports
 │   ├── core.py          # Generic BIDS→HF logic
 │   ├── config.py        # ARC configuration
@@ -171,7 +171,7 @@ from pathlib import Path
 import pandas as pd
 from datasets import Features, Nifti, Value
 
-from arc_bids.core import DatasetBuilderConfig, build_hf_dataset
+from bids_hub.core import DatasetBuilderConfig, build_hf_dataset
 
 # Create a file table with paths to NIfTI files
 file_table = pd.DataFrame({
@@ -204,13 +204,13 @@ data = img.get_fdata()  # Convert to numpy array
 
 ```bash
 # Show dataset info
-uv run arc-bids info
+uv run bids-hub info
 
 # Build dataset (dry run - won't push to Hub)
-uv run arc-bids build data/openneuro/ds004884 --dry-run
+uv run bids-hub build data/openneuro/ds004884 --dry-run
 
 # Build and push to Hub
-uv run arc-bids build data/openneuro/ds004884 --no-dry-run
+uv run bids-hub build data/openneuro/ds004884 --no-dry-run
 ```
 
 ## Development

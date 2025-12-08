@@ -10,7 +10,7 @@ License: CC0 (Public Domain)
 
 Example:
     ```python
-    from arc_bids.config import ARC_CONFIG
+    from bids_hub.config import ARC_CONFIG
     from pathlib import Path
 
     # Override with your local path

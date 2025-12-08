@@ -12,7 +12,7 @@ Validation levels:
 4. BIDS: Optional external BIDS validator check
 
 Usage:
-    from arc_bids.validation import validate_arc_download
+    from bids_hub.validation import validate_arc_download
 
     results = validate_arc_download(Path("data/openneuro/ds004884"))
     if results.all_passed:

@@ -29,11 +29,11 @@ uv run pre-commit install
 uv run pre-commit run --all-files
 
 # CLI commands
-uv run arc-bids --help
-uv run arc-bids info
-uv run arc-bids validate data/openneuro/ds004884
-uv run arc-bids build data/openneuro/ds004884 --dry-run
-uv run arc-bids build data/openneuro/ds004884 --no-dry-run  # Actually push to Hub
+uv run bids-hub --help
+uv run bids-hub info
+uv run bids-hub validate data/openneuro/ds004884
+uv run bids-hub build data/openneuro/ds004884 --dry-run
+uv run bids-hub build data/openneuro/ds004884 --no-dry-run  # Actually push to Hub
 ```
 
 ## Architecture

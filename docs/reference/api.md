@@ -4,7 +4,7 @@
 
 ---
 
-## Module: `arc_bids.arc`
+## Module: `bids_hub.arc`
 
 ARC dataset-specific functions.
 
@@ -14,7 +14,7 @@ Build a file table for the ARC dataset.
 
 ```python
 from pathlib import Path
-from arc_bids.arc import build_arc_file_table
+from bids_hub.arc import build_arc_file_table
 
 file_table = build_arc_file_table(Path("data/openneuro/ds004884"))
 ```
@@ -49,7 +49,7 @@ file_table = build_arc_file_table(Path("data/openneuro/ds004884"))
 Get the HuggingFace Features schema for ARC.
 
 ```python
-from arc_bids.arc import get_arc_features
+from bids_hub.arc import get_arc_features
 
 features = get_arc_features()
 ```
@@ -65,8 +65,8 @@ High-level pipeline: build file table, create dataset, push to Hub.
 
 ```python
 from pathlib import Path
-from arc_bids.arc import build_and_push_arc
-from arc_bids.core import DatasetBuilderConfig
+from bids_hub.arc import build_and_push_arc
+from bids_hub.core import DatasetBuilderConfig
 
 config = DatasetBuilderConfig(
     bids_root=Path("data/openneuro/ds004884"),
@@ -82,7 +82,7 @@ build_and_push_arc(config)
 
 ---
 
-## Module: `arc_bids.core`
+## Module: `bids_hub.core`
 
 Generic BIDS → HuggingFace utilities.
 
@@ -109,7 +109,7 @@ class DatasetBuilderConfig:
 Convert a pandas DataFrame to a HuggingFace Dataset.
 
 ```python
-from arc_bids.core import build_hf_dataset
+from bids_hub.core import build_hf_dataset
 
 ds = build_hf_dataset(config, file_table, features)
 ```
@@ -129,7 +129,7 @@ ds = build_hf_dataset(config, file_table, features)
 Push a dataset to HuggingFace Hub.
 
 ```python
-from arc_bids.core import push_dataset_to_hub
+from bids_hub.core import push_dataset_to_hub
 
 push_dataset_to_hub(
     ds,
@@ -149,7 +149,7 @@ push_dataset_to_hub(
 
 ---
 
-## Module: `arc_bids.validation`
+## Module: `bids_hub.validation`
 
 Pre-upload validation.
 
@@ -159,7 +159,7 @@ Validate an ARC dataset download.
 
 ```python
 from pathlib import Path
-from arc_bids.validation import validate_arc_download
+from bids_hub.validation import validate_arc_download
 
 result = validate_arc_download(Path("data/openneuro/ds004884"))
 

@@ -14,7 +14,7 @@ The typical workflow for a specific BIDS dataset (e.g., ARC, SOOP) is:
 
 Example usage:
     ```python
-    from arc_bids.core import DatasetBuilderConfig, build_hf_dataset
+    from bids_hub.core import DatasetBuilderConfig, build_hf_dataset
     from datasets import Features, Nifti, Value
 
     # Your file table with paths to NIfTI files

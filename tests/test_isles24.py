@@ -16,8 +16,8 @@ import pandas as pd
 import pytest
 from datasets import Features, Nifti, Sequence
 
-from arc_bids.core import DatasetBuilderConfig
-from arc_bids.isles24 import (
+from bids_hub.core import DatasetBuilderConfig
+from bids_hub.isles24 import (
     build_and_push_isles24,
     build_isles24_file_table,
     get_isles24_features,
@@ -60,7 +60,7 @@ def synthetic_isles24_root() -> Generator[Path, None, None]:
     with tempfile.TemporaryDirectory() as tmpdir:
         root = Path(tmpdir) / "isles24_train"
         root.mkdir()
-        rawdata = root / "rawdata"
+        rawdata = root / "raw_data"
         derivatives = root / "derivatives"
 
         # Create participants.tsv
@@ -80,43 +80,60 @@ def synthetic_isles24_root() -> Generator[Path, None, None]:
         # --- Subject 1: Full Data ---
         s1 = "sub-stroke0001"
 
-        # Raw ses-01
-        _create_minimal_nifti(rawdata / s1 / "ses-01/ct" / f"{s1}_ses-01_ncct.nii.gz")
-        _create_minimal_nifti(rawdata / s1 / "ses-01/cta" / f"{s1}_ses-01_cta.nii.gz")
-        _create_minimal_nifti(rawdata / s1 / "ses-01/ctp" / f"{s1}_ses-01_ctp.nii.gz")
+        # Raw ses-01 (Flat structure)
+        _create_minimal_nifti(rawdata / s1 / "ses-01" / f"{s1}_ses-01_ncct.nii.gz")
+        _create_minimal_nifti(rawdata / s1 / "ses-01" / f"{s1}_ses-01_cta.nii.gz")
+        _create_minimal_nifti(rawdata / s1 / "ses-01" / f"{s1}_ses-01_ctp.nii.gz")
 
-        # Raw ses-02
-        _create_minimal_nifti(rawdata / s1 / "ses-02/dwi" / f"{s1}_ses-02_dwi.nii.gz")
-        _create_minimal_nifti(rawdata / s1 / "ses-02/dwi" / f"{s1}_ses-02_adc.nii.gz")
+        # Raw ses-02 (Flat structure for DWI/ADC? implementation uses derivatives for DWI/ADC, wait.
+        # Implementation:
+        #   ses02_deriv = deriv_subject_dir / "ses-02"
+        #   dwi = _find_single_nifti(ses02_deriv, "*_space-ncct_dwi.nii.gz")
+        # So DWI/ADC are expected in DERIVATIVES ses-02, not rawdata.
+        # But wait, looking at my read of isles24.py:
+        #   dwi = _find_single_nifti(ses02_deriv, "*_space-ncct_dwi.nii.gz")
+        # Yes, dwi is in derivatives.
+        # But the original test fixture put them in rawdata/s1/ses-02/dwi.
+        # So I need to move DWI/ADC to derivatives/s1/ses-02/.
+
+        # Checking isles24.py again.
+        # ses02_deriv = deriv_subject_dir / "ses-02"
+        # dwi = _find_single_nifti(ses02_deriv, "*_space-ncct_dwi.nii.gz")
+
+        # Okay, I will update the fixture to put DWI/ADC in derivatives/ses-02/ and flattened.
+
+        _create_minimal_nifti(derivatives / s1 / "ses-02" / f"{s1}_space-ncct_dwi.nii.gz")
+        _create_minimal_nifti(derivatives / s1 / "ses-02" / f"{s1}_space-ncct_adc.nii.gz")
 
         # Derivatives ses-01 (Perfusion)
-        perf_dir = derivatives / "perfusion_maps" / s1 / "ses-01" / "perf"
-        _create_minimal_nifti(perf_dir / f"{s1}_ses-01_Tmax.nii.gz")
-        _create_minimal_nifti(perf_dir / f"{s1}_ses-01_MTT.nii.gz")
-        _create_minimal_nifti(perf_dir / f"{s1}_ses-01_CBF.nii.gz")
-        _create_minimal_nifti(perf_dir / f"{s1}_ses-01_CBV.nii.gz")
+        perf_dir = derivatives / s1 / "ses-01" / "perfusion-maps"
+        _create_minimal_nifti(perf_dir / f"{s1}_space-ncct_tmax.nii.gz")
+        _create_minimal_nifti(perf_dir / f"{s1}_space-ncct_mtt.nii.gz")
+        _create_minimal_nifti(perf_dir / f"{s1}_space-ncct_cbf.nii.gz")
+        _create_minimal_nifti(perf_dir / f"{s1}_space-ncct_cbv.nii.gz")
 
         # Derivatives ses-01 (Masks)
-        lvo_path = derivatives / "lvo_masks" / s1 / "ses-01/anat" / f"{s1}_ses-01_msk.nii.gz"
-        _create_minimal_nifti(lvo_path)
-        cow_path = derivatives / "cow_segmentations" / s1 / "ses-01/anat"
-        _create_minimal_nifti(cow_path / f"{s1}_ses-01_msk.nii.gz")
+        # Implementation: lvo_mask = _find_single_nifti(ses01_deriv, "*_space-ncct_lvo-msk.nii.gz")
+        # So lvo_mask is directly in ses01_deriv (flattened)
+        _create_minimal_nifti(derivatives / s1 / "ses-01" / f"{s1}_space-ncct_lvo-msk.nii.gz")
+
+        # cow_seg = _find_single_nifti(ses01_deriv, "*_space-ncct_cow-msk.nii.gz")
+        _create_minimal_nifti(derivatives / s1 / "ses-01" / f"{s1}_space-ncct_cow-msk.nii.gz")
 
         # Derivatives ses-02 (Lesion)
-        lesion_path = derivatives / "lesion_masks" / s1 / "ses-02/anat"
-        _create_minimal_nifti(lesion_path / f"{s1}_ses-02_msk.nii.gz")
+        # Pattern: *_space-ncct_lesion-msk.nii.gz
+        _create_minimal_nifti(derivatives / s1 / "ses-02" / f"{s1}_space-ncct_lesion-msk.nii.gz")
 
         # --- Subject 2: Partial Data (Missing CTP and LVO) ---
         s2 = "sub-stroke0002"
-        _create_minimal_nifti(rawdata / s2 / "ses-01/ct" / f"{s2}_ses-01_ncct.nii.gz")
-        _create_minimal_nifti(rawdata / s2 / "ses-01/cta" / f"{s2}_ses-01_cta.nii.gz")
+        _create_minimal_nifti(rawdata / s2 / "ses-01" / f"{s2}_ses-01_ncct.nii.gz")
+        _create_minimal_nifti(rawdata / s2 / "ses-01" / f"{s2}_ses-01_cta.nii.gz")
         # Missing CTP
         # Missing Perfusion Maps
 
-        _create_minimal_nifti(rawdata / s2 / "ses-02/dwi" / f"{s2}_ses-02_dwi.nii.gz")
-        _create_minimal_nifti(rawdata / s2 / "ses-02/dwi" / f"{s2}_ses-02_adc.nii.gz")
-        lesion_path_s2 = derivatives / "lesion_masks" / s2 / "ses-02/anat"
-        _create_minimal_nifti(lesion_path_s2 / f"{s2}_ses-02_msk.nii.gz")
+        _create_minimal_nifti(derivatives / s2 / "ses-02" / f"{s2}_space-ncct_dwi.nii.gz")
+        _create_minimal_nifti(derivatives / s2 / "ses-02" / f"{s2}_space-ncct_adc.nii.gz")
+        _create_minimal_nifti(derivatives / s2 / "ses-02" / f"{s2}_space-ncct_lesion-msk.nii.gz")
 
         # --- Subject 3: No Imaging Data (Only in Participants) ---
         # Should be excluded
@@ -152,9 +169,8 @@ class TestBuildISLES24FileTable:
             "age",
             "sex",
             "nihss_admission",
+            "mrs_admission",
             "mrs_3month",
-            "thrombolysis",
-            "thrombectomy",
         }
         assert set(df.columns) == expected_cols
 
@@ -196,7 +212,7 @@ class TestBuildISLES24FileTable:
 
     def test_missing_rawdata_raises(self, tmp_path: Path) -> None:
         """Test that missing rawdata directory raises ValueError."""
-        with pytest.raises(ValueError, match="rawdata directory not found"):
+        with pytest.raises(ValueError, match="raw_data directory not found"):
             build_isles24_file_table(tmp_path)
 
     def test_excludes_empty_subjects(self, synthetic_isles24_root: Path) -> None:
@@ -235,8 +251,8 @@ class TestBuildAndPushISLES24:
         )
 
         with (
-            patch("arc_bids.isles24.build_hf_dataset") as mock_build,
-            patch("arc_bids.isles24.push_dataset_to_hub") as mock_push,
+            patch("bids_hub.isles24.build_hf_dataset") as mock_build,
+            patch("bids_hub.isles24.push_dataset_to_hub") as mock_push,
         ):
             mock_build.return_value = MagicMock()
             build_and_push_isles24(config)

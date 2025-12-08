@@ -15,7 +15,7 @@ import pandas as pd
 import pytest
 from datasets import Dataset, Features, Nifti, Value
 
-from arc_bids.core import (
+from bids_hub.core import (
     DatasetBuilderConfig,
     build_hf_dataset,
     push_dataset_to_hub,
@@ -384,9 +384,9 @@ class TestPushDatasetToHub:
 
         # Mock HfApi and pq.write_table
         with (
-            patch("arc_bids.core.HfApi") as MockApi,
-            patch("arc_bids.core.embed_table_storage") as mock_embed,
-            patch("arc_bids.core.pq.write_table") as mock_write,
+            patch("bids_hub.core.HfApi") as MockApi,
+            patch("bids_hub.core.embed_table_storage") as mock_embed,
+            patch("bids_hub.core.pq.write_table") as mock_write,
         ):
             mock_api_instance = MockApi.return_value
             # embed_table_storage returns a simple table

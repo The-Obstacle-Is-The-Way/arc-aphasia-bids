@@ -23,7 +23,7 @@ from pathlib import Path
 from datasets import load_dataset
 from tqdm.auto import tqdm
 
-from arc_bids.isles24 import build_isles24_file_table
+from bids_hub.isles24 import build_isles24_file_table
 
 # Configuration (per Zenodo v7)
 EXPECTED_SUBJECTS = 149

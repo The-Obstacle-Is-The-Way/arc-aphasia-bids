@@ -1,4 +1,4 @@
-"""Tests for arc_bids.validation module."""
+"""Tests for bids_hub.validation module."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from arc_bids.validation import (
+from bids_hub.validation import (
     ValidationCheck,
     ValidationResult,
     validate_arc_download,

@@ -9,7 +9,7 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
-from arc_bids.cli import app
+from bids_hub.cli import app
 
 runner = CliRunner()
 
@@ -22,13 +22,13 @@ class TestCliHelp:
         result = runner.invoke(app, ["--help"])
 
         assert result.exit_code == 0
-        assert "ARC" in result.stdout or "arc" in result.stdout.lower()
-        assert "build" in result.stdout
-        assert "info" in result.stdout
+        assert "arc" in result.stdout.lower()
+        assert "isles24" in result.stdout.lower()
+        assert "list" in result.stdout.lower()
 
     def test_build_help(self) -> None:
-        """Test that build --help works."""
-        result = runner.invoke(app, ["build", "--help"])
+        """Test that arc build --help works."""
+        result = runner.invoke(app, ["arc", "build", "--help"])
 
         assert result.exit_code == 0
         assert "ARC" in result.stdout or "arc" in result.stdout.lower()
@@ -36,8 +36,8 @@ class TestCliHelp:
         assert "--dry-run" in result.stdout
 
     def test_info_help(self) -> None:
-        """Test that info --help works."""
-        result = runner.invoke(app, ["info", "--help"])
+        """Test that arc info --help works."""
+        result = runner.invoke(app, ["arc", "info", "--help"])
 
         assert result.exit_code == 0
 
@@ -50,6 +50,7 @@ class TestCliCommands:
         result = runner.invoke(
             app,
             [
+                "arc",
                 "build",
                 str(tmp_path),
                 "--hf-repo",
@@ -69,6 +70,7 @@ class TestCliCommands:
         result = runner.invoke(
             app,
             [
+                "arc",
                 "build",
                 # Missing bids_root argument
                 "--hf-repo",
@@ -80,7 +82,7 @@ class TestCliCommands:
 
     def test_info_command_works(self) -> None:
         """Test that info command executes successfully."""
-        result = runner.invoke(app, ["info"])
+        result = runner.invoke(app, ["arc", "info"])
 
         assert result.exit_code == 0
         assert "Aphasia Recovery Cohort" in result.stdout
@@ -96,6 +98,7 @@ class TestCliOutput:
         result = runner.invoke(
             app,
             [
+                "arc",
                 "build",
                 str(tmp_path),
                 "--hf-repo",
