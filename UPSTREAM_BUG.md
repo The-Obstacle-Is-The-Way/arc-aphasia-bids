@@ -59,7 +59,7 @@ table = fresh_shard._data.table.combine_chunks()
 embedded_table = embed_table_storage(table)
 ```
 
-See: `src/bids_hub/core.py` line 224-232
+See: `src/bids_hub/core/builder.py` (search for "pandas workaround")
 
 ---
 
@@ -131,5 +131,5 @@ The `gc.collect()` calls we added for #7893 have been removed from our codebase.
 
 1. Wait for upstream PR #7896 to be reviewed/merged
 2. When merged, update `datasets` dependency to fixed version
-3. Remove pandas workaround from `src/bids_hub/core.py`
+3. Remove pandas workaround from `src/bids_hub/core/builder.py`
 4. Consider switching to standard `push_to_hub` entirely

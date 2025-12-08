@@ -143,11 +143,11 @@ Check if any bug info is stale or resolved.
 
 ## Success Criteria
 
-- [ ] README reflects multi-dataset support
-- [ ] CLAUDE.md has updated commands and architecture
-- [ ] pyproject.toml description updated
-- [ ] Version bumped appropriately
-- [ ] No stale references to old structure
+- [x] README reflects multi-dataset support
+- [x] CLAUDE.md has updated commands and architecture
+- [x] pyproject.toml description updated
+- [x] Version bumped appropriately
+- [x] No stale references to old structure
 
 ---
 

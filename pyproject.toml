@@ -1,6 +1,6 @@
 [project]
 name = "bids-hub"
-version = "0.1.0"
+version = "0.2.0"
 description = "Upload BIDS neuroimaging datasets (ARC, ISLES24) to HuggingFace Hub"
 readme = "README.md"
 license = "Apache-2.0"
@@ -8,7 +8,7 @@ requires-python = ">=3.10"
 authors = [
     { name = "The-Obstacle-Is-The-Way" }
 ]
-keywords = ["bids", "nifti", "neuroimaging", "huggingface", "datasets", "mri", "stroke", "aphasia", "isles"]
+keywords = ["bids", "nifti", "neuroimaging", "huggingface", "datasets", "mri", "ct", "stroke", "aphasia", "isles", "isles24", "perfusion"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",

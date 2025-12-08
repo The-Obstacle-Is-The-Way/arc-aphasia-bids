@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Purpose
 
-This package uploads the **Aphasia Recovery Cohort (ARC)** neuroimaging dataset (OpenNeuro ds004884) to HuggingFace Hub. It converts BIDS-formatted NIfTI files to HuggingFace's `Dataset` format with proper `Nifti()` feature types.
+This package uploads BIDS neuroimaging datasets (ARC, ISLES24) to HuggingFace Hub. It converts BIDS-formatted NIfTI files to HuggingFace's `Dataset` format with proper `Nifti()` feature types.
 
 ## Commands
 
@@ -28,13 +28,17 @@ uv run mypy src tests
 uv run pre-commit install
 uv run pre-commit run --all-files
 
-# CLI commands
-uv run bids-hub --help
-uv run bids-hub info
+# ARC commands
 uv run bids-hub arc validate data/openneuro/ds004884
 uv run bids-hub arc build data/openneuro/ds004884 --dry-run
-uv run bids-hub arc build data/openneuro/ds004884 --no-dry-run  # Actually push to Hub
+uv run bids-hub arc build data/openneuro/ds004884 --no-dry-run
+uv run bids-hub arc info
+
+# ISLES24 commands
 uv run bids-hub isles24 validate data/zenodo/isles24/train
+uv run bids-hub isles24 build data/zenodo/isles24/train --dry-run
+uv run bids-hub isles24 build data/zenodo/isles24/train --no-dry-run
+uv run bids-hub isles24 info
 ```
 
 ## Architecture
@@ -42,15 +46,15 @@ uv run bids-hub isles24 validate data/zenodo/isles24/train
 ### Data Flow
 
 ```
-OpenNeuro BIDS (ds004884)
+BIDS Dataset (Local)
         │
-        ▼ build_arc_file_table()
-pandas DataFrame (paths + metadata, one row per SESSION)
+        ▼ build_file_table()
+pandas DataFrame (paths + metadata)
         │
         ▼ build_hf_dataset()
 datasets.Dataset with Nifti() features
         │
-        ▼ push_dataset_to_hub(num_shards=len(file_table))
+        ▼ push_dataset_to_hub(num_shards=N)
 HuggingFace Hub
 ```
 
@@ -58,23 +62,19 @@ HuggingFace Hub
 
 | Module | Purpose |
 |--------|---------|
-| `core.py` | Generic BIDS→HF conversion (reusable for any dataset) |
-| `arc.py` | ARC-specific: schema, file discovery, pipeline |
-| `validation/` | Pre-upload integrity checks (ARC + ISLES24) |
-| `cli.py` | Typer CLI with `build`, `validate`, `info` commands |
+| `core/builder.py` | Generic BIDS→HF conversion (build_hf_dataset, push_dataset_to_hub) |
+| `core/config.py` | DatasetBuilderConfig dataclass |
+| `core/utils.py` | File discovery helpers (find_single_nifti, find_all_niftis) |
+| `datasets/arc.py` | ARC schema, file discovery, pipeline |
+| `datasets/isles24.py` | ISLES24 schema, file discovery, pipeline |
+| `validation/base.py` | Generic validation framework |
+| `validation/arc.py` | ARC validation rules |
+| `validation/isles24.py` | ISLES24 validation rules |
+| `cli.py` | Typer CLI with subcommands |
 
-### Key Design Decisions
+## Dataset Schemas
 
-1. **One row per SESSION** (not per subject): ARC is longitudinal with 902 sessions across 230 subjects. This maps naturally to `num_shards`.
-
-2. **Explicit `num_shards=len(file_table)`**: The `datasets` library estimates shard count based on file path sizes (~1MB), but embedded NIfTIs are ~278GB. Without explicit sharding, it tries to build 1 giant shard → OOM crash.
-
-3. **Git-based `datasets` dependency**: PyPI stable has a bug where `Nifti.embed_storage` silently creates empty files. Must use git main until fix is released. See `[tool.uv.sources]` in pyproject.toml.
-
-4. **Absolute file paths**: Required for `embed_external_files=True` to work correctly.
-
-## Dataset Schema
-
+### ARC Schema (one row per SESSION)
 ```python
 Features({
     "subject_id": Value("string"),    # e.g., "sub-M2001"
@@ -82,9 +82,9 @@ Features({
     "t1w": Nifti(),                   # T1-weighted structural
     "t2w": Nifti(),                   # T2-weighted structural
     "flair": Nifti(),                 # FLAIR structural
-    "bold": Nifti(),                  # fMRI 4D time-series
-    "dwi": Nifti(),                   # Diffusion-weighted
-    "sbref": Nifti(),                 # Single-band reference
+    "bold": Sequence(Nifti()),        # fMRI 4D time-series (list of runs)
+    "dwi": Sequence(Nifti()),         # Diffusion-weighted (list of runs)
+    "sbref": Sequence(Nifti()),       # Single-band reference (list of runs)
     "lesion": Nifti(),                # Expert lesion mask
     "age_at_stroke": Value("float32"),
     "sex": Value("string"),
@@ -93,13 +93,40 @@ Features({
 })
 ```
 
-All NIfTI columns are nullable (sessions may not have all modalities).
+### ISLES24 Schema (one row per SUBJECT, flattened)
+```python
+Features({
+    "subject_id": Value("string"),
+    # Acute (ses-01)
+    "ncct": Nifti(),
+    "cta": Nifti(),
+    "ctp": Nifti(),
+    # Perfusion Maps
+    "tmax": Nifti(),
+    "mtt": Nifti(),
+    "cbf": Nifti(),
+    "cbv": Nifti(),
+    # Follow-up (ses-02)
+    "dwi": Nifti(),
+    "adc": Nifti(),
+    # Masks
+    "lesion_mask": Nifti(),
+    "lvo_mask": Nifti(),
+    "cow_segmentation": Nifti(),
+    # Metadata
+    "age": Value("float32"),
+    "sex": Value("string"),
+    "nihss_admission": Value("float32"),
+    "mrs_admission": Value("float32"),
+    "mrs_3month": Value("float32"),
+})
+```
 
 ## Testing
 
-Tests use synthetic BIDS structures with minimal NIfTI files (2x2x2 voxels). The fixture `synthetic_bids_root` creates a complete multi-session dataset with all modalities for comprehensive coverage.
+Tests use synthetic BIDS structures with minimal NIfTI files (2x2x2 voxels). The fixtures `synthetic_bids_root` (ARC) and `synthetic_isles24_root` (ISLES24) create complete datasets with all modalities for comprehensive coverage.
 
 Key test patterns:
 - `_create_minimal_nifti()`: Creates valid NIfTI files quickly
 - Mocking `push_dataset_to_hub` for dry-run tests
-- Validation tests check counts against Sci Data paper expectations
+- Validation tests check counts against paper/challenge expectations

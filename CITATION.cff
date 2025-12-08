@@ -1,8 +1,8 @@
 cff-version: 1.2.0
-title: arc-bids
+title: bids-hub
 message: >-
-  If you use the ARC dataset through this package, please cite both the
-  original dataset publication and this software.
+  If you use datasets uploaded through this package, please cite both the
+  original dataset publications and this software.
 type: software
 authors:
   - name: The Obstacle Is The Way

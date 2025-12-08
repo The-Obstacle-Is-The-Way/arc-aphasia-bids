@@ -1,30 +1,46 @@
-# arc-bids
+# bids-hub
 
 ## Project Overview
-**arc-bids** is a specialized Python pipeline designed to upload the **Aphasia Recovery Cohort (ARC)** neuroimaging dataset (OpenNeuro `ds004884`) to the HuggingFace Hub. It converts raw BIDS data (NIfTI images + metadata) into a sharded HuggingFace Dataset (`parquet`), enabling direct cloud streaming and visualization.
+
+**bids-hub** is a Python pipeline that uploads BIDS neuroimaging datasets to HuggingFace Hub. It converts raw BIDS data (NIfTI images + metadata) into sharded HuggingFace Datasets (parquet), enabling direct cloud streaming and visualization.
+
+**Supported Datasets:**
+
+| Dataset | Source | Subjects | Size |
+|---------|--------|----------|------|
+| ARC (Aphasia Recovery Cohort) | OpenNeuro ds004884 | 230 | ~293GB |
+| ISLES 2024 (Stroke Lesion Segmentation) | Zenodo 17652035 | 149 | ~100GB |
 
 **Key Features:**
 
-* **Multimodal:** Handles T1w, T2w, FLAIR, BOLD fMRI, DWI, sbref, and Lesion Masks.
-* **Session-Based:** Iterates per *scanning session* (902 rows), not just per subject.
-* **Validation:** Includes strict integrity checks against the published ARC descriptor.
-* **Optimized:** Uses specific sharding strategies to handle 278GB of NIfTI data without OOM crashes.
+* **Multi-Dataset:** Supports ARC and ISLES24 with dataset-specific schemas.
+* **Multimodal:** Handles T1w, T2w, FLAIR, BOLD fMRI, DWI, CT, CTA, CTP, perfusion maps.
+* **Validation:** Includes strict integrity checks against published dataset descriptors.
+* **Optimized:** Uses specific sharding strategies to handle large NIfTI data without OOM crashes.
 
 ## Critical Technical Mandates
 
-### 1. The OOM Crash Fix (Sharding)
-**Problem:** The `datasets` library underestimates the dataset size (based on file paths) and defaults to 1 shard. When `embed_external_files=True` loads the actual NIfTI bytes (278GB), the process crashes with Out-Of-Memory (OOM).
-**Solution:** We **MUST** force sharding by passing `num_shards=len(file_table)` to `push_dataset_to_hub`. This ensures 1 shard per session (~300MB), keeping RAM usage low.
-**Code Location:** `src/arc_bids/arc.py` inside `build_and_push_arc`.
+### 1. The Embedding Bug Fix (Sharding)
 
-### 2. The 0-Byte NIfTI Fix (Dependency)
-**Problem:** Stable versions of `datasets` (PyPI) have a bug where `Nifti()` files upload as 0 bytes.
-**Solution:** We **MUST** use the development version from GitHub.
+**Problem:** The `datasets` library's `embed_table_storage` crashes with SIGKILL when processing sharded datasets containing `Sequence()` nested types like `Sequence(Nifti())`.
+
+**Solution:** We **MUST** use the pandas workaround in `push_dataset_to_hub` that converts shards to pandas and recreates them to break problematic Arrow slice references.
+
+**Code Location:** `src/bids_hub/core/builder.py` (search for "pandas workaround")
+
+**Upstream Bug:** See `UPSTREAM_BUG.md` for full details and tracking.
+
+### 2. The Development Dependency
+
+**Problem:** Stable versions of `datasets` (PyPI) have bugs affecting NIfTI uploads.
+
+**Solution:** We **MUST** use a pinned development version from GitHub.
+
 **Configuration:** In `pyproject.toml`:
 
 ```toml
 [tool.uv.sources]
-datasets = { git = "https://github.com/huggingface/datasets.git" }
+datasets = { git = "https://github.com/huggingface/datasets.git", rev = "..." }
 ```
 
 ## Building and Running
@@ -34,13 +50,15 @@ This project uses `uv` for dependency management and `make` for orchestration.
 ### Key Commands
 
 | Goal | Command | Description |
-| :--- | :--- | :--- |
+|:-----|:--------|:------------|
 | **Install** | `make install` | Installs dependencies via `uv sync`. |
-| **Test** | `make test` | Runs `pytest` (includes strict type checking). |
+| **Test** | `make test` | Runs `pytest`. |
 | **Lint** | `make lint` | Runs `ruff check`. |
 | **Format** | `make format` | Runs `ruff format`. |
-| **Validate** | `uv run arc-bids validate <path>` | Validates a local BIDS download integrity. |
-| **Build & Push** | `uv run arc-bids build <path> --hf-repo <id>` | Builds the dataset and pushes to HuggingFace. |
+| **ARC Validate** | `uv run bids-hub arc validate <path>` | Validates a local ARC BIDS download. |
+| **ARC Build** | `uv run bids-hub arc build <path> --no-dry-run` | Builds and pushes ARC to HuggingFace. |
+| **ISLES24 Validate** | `uv run bids-hub isles24 validate <path>` | Validates a local ISLES24 download. |
+| **ISLES24 Build** | `uv run bids-hub isles24 build <path> --no-dry-run` | Builds and pushes ISLES24 to HuggingFace. |
 
 ### Local Development Loop
 
@@ -51,30 +69,58 @@ uv sync --all-extras
 # 2. Run the full quality suite
 make all
 
-# 3. Run validation on a local sample
-uv run arc-bids validate data/openneuro/ds004884
+# 3. Run validation on local data
+uv run bids-hub arc validate data/openneuro/ds004884
+uv run bids-hub isles24 validate data/zenodo/isles24/train
 ```
 
 ## Architecture
 
 ### Codebase Structure
 
-* **`src/arc_bids/arc.py`**: **The Brain.** Contains `build_arc_file_table` (iterates BIDS structure) and `get_arc_features` (defines HF schema). This is where the dataset logic lives.
-* **`src/arc_bids/core.py`**: **The Tooling.** Generic helpers for any BIDS-to-HF conversion. Contains `build_hf_dataset` and `push_dataset_to_hub`.
-* **`src/arc_bids/validation.py`**: **The Guard.** Checks file counts (T1w, BOLD, etc.) against the official ARC paper specs before upload.
-* **`tests/test_arc.py`**: **The Verification.** Uses a synthetic BIDS fixture to verify that all 7 modalities are correctly discovered.
+```text
+src/bids_hub/
+├── __init__.py          # Public API re-exports
+├── cli.py               # Typer CLI with subcommands
+├── core/                # Generic BIDS→HF utilities
+│   ├── __init__.py
+│   ├── builder.py       # build_hf_dataset, push_dataset_to_hub
+│   ├── config.py        # DatasetBuilderConfig
+│   └── utils.py         # File discovery helpers
+├── datasets/            # Per-dataset modules
+│   ├── __init__.py
+│   ├── arc.py           # ARC schema + pipeline
+│   └── isles24.py       # ISLES24 schema + pipeline
+└── validation/          # Per-dataset validation
+    ├── __init__.py
+    ├── base.py          # Generic validation framework
+    ├── arc.py           # ARC validation rules
+    └── isles24.py       # ISLES24 validation rules
+```
+
+### Module Responsibilities
+
+* **`core/builder.py`**: Generic BIDS→HF conversion. Contains `build_hf_dataset` and `push_dataset_to_hub`.
+* **`core/config.py`**: `DatasetBuilderConfig` dataclass for pipeline configuration.
+* **`core/utils.py`**: File discovery helpers (`find_single_nifti`, `find_all_niftis`).
+* **`datasets/arc.py`**: ARC-specific schema (`get_arc_features`) and file table builder (`build_arc_file_table`).
+* **`datasets/isles24.py`**: ISLES24-specific schema and pipeline.
+* **`validation/base.py`**: Generic validation framework with `ValidationResult` dataclass.
+* **`validation/arc.py`**: ARC-specific validation rules (file counts per ARC paper).
+* **`validation/isles24.py`**: ISLES24-specific validation rules.
+* **`cli.py`**: Typer CLI with `arc` and `isles24` subcommand groups.
 
 ### Data Flow
 
-1. **Input:** Local BIDS directory (`data/openneuro/ds004884`).
-2. **Discovery:** `arc.py` walks directories (`anat/`, `func/`, `dwi/`) to build a Pandas DataFrame.
-3. **Schema:** `datasets.Features` defines columns (`Nifti()` for images).
+1. **Input:** Local BIDS directory (e.g., `data/openneuro/ds004884` or `data/zenodo/isles24/train`).
+2. **Discovery:** Dataset module walks directories to build a Pandas DataFrame.
+3. **Schema:** `datasets.Features` defines columns (`Nifti()` for images, `Value()` for metadata).
 4. **Build:** `datasets.Dataset.from_pandas()` creates the dataset object.
-5. **Upload:** `ds.push_to_hub(..., num_shards=902)` embeds NIfTI bytes into Parquet shards and uploads to HF.
+5. **Upload:** `push_dataset_to_hub()` embeds NIfTI bytes into Parquet shards and uploads.
 
 ## Development Conventions
 
 * **Typing:** Strict `mypy` compliance is required. Use `from __future__ import annotations`.
 * **Formatting:** `ruff` is the authority.
-* **Testing:** All new features must have `pytest` coverage. Use `synthetic_bids_root` fixture for filesystem tests.
-* **No "Hacky" Fixes:** If a library fails (like `datasets`), fix the dependency version or configuration, do not patch the library code locally.
+* **Testing:** All new features must have `pytest` coverage. Use `synthetic_bids_root` (ARC) or `synthetic_isles24_root` (ISLES24) fixtures for filesystem tests.
+* **No "Hacky" Fixes:** If a library fails, fix the dependency version or configuration, do not patch the library code locally.
