@@ -278,14 +278,16 @@ def validate_isles24_download(bids_root: Path) -> tuple[bool, list[str]]:
     # Check 9: Spot check NIfTI integrity (first file of each type)
     messages.append("\n--- NIfTI Integrity (spot check) ---")
 
-    sample_files = list(bids_root.glob("derivatives/sub-stroke0001/ses-01/*_space-ncct_cta.nii.gz"))
+    # Use first available subject instead of hardcoded sub-stroke0001
+    sample_files = list(bids_root.glob("derivatives/sub-*/ses-01/*_space-ncct_cta.nii.gz"))
     if sample_files:
         import gzip
 
         try:
             with gzip.open(sample_files[0], "rb") as f:
                 header = f.read(4)
-                if header[:2] == b"\x1c\x01" or header == b"n+1\x00":
+                # NIfTI-1 magic: 348 (0x015c) little-endian, or "n+1\x00"
+                if header[:2] == b"\x5c\x01" or header == b"n+1\x00":
                     messages.append(f"✅ NIfTI header valid: {sample_files[0].name}")
                 else:
                     messages.append(f"⚠️  NIfTI header check inconclusive: {sample_files[0].name}")
