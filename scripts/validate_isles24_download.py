@@ -69,21 +69,23 @@ def verify_md5(archive_path: Path) -> tuple[bool, str]:
     print(f"Computing MD5 of {archive_path.name} (~99GB, this takes 10-20 minutes)...")
     print("(You can skip this with Ctrl+C if you trust the download)")
 
-    md5 = hashlib.md5()
+    md5 = hashlib.md5()  # noqa: S324 - MD5 used for integrity check, not security
     total_size = archive_path.stat().st_size
     read_size = 0
+    last_printed_gb = -1
 
     try:
         with open(archive_path, "rb") as f:
             for chunk in iter(lambda: f.read(8192 * 1024), b""):  # 8MB chunks
                 md5.update(chunk)
                 read_size += len(chunk)
-                # Progress indicator every ~1GB
-                if read_size % (1024 * 1024 * 1024) < 8192 * 1024:
+                # Progress indicator every 1GB (exactly once per boundary)
+                current_gb = read_size // (1024**3)
+                if current_gb > last_printed_gb:
+                    last_printed_gb = current_gb
                     pct = (read_size / total_size) * 100
-                    read_gb = read_size // (1024**3)
                     total_gb = total_size // (1024**3)
-                    print(f"  {pct:.0f}% ({read_gb}GB / {total_gb}GB)")
+                    print(f"  {pct:.0f}% ({current_gb}GB / {total_gb}GB)")
 
         computed = md5.hexdigest()
         if computed == EXPECTED_MD5:
