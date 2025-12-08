@@ -1,89 +1,94 @@
-# Phase 03: Scripts Reorganization
+# Phase 03: Scripts Cleanup
 
 > Status: Ready after Phase 02
 > Blocking: No
-> Estimated: 1-2 hours
+> Estimated: 30 minutes
+> Updated: Aligned with upstream `specs_from_upstream/04-export-cleanup.md`
 
 ---
 
 ## Goal
 
-Reorganize scripts by dataset namespace for clarity.
+**DELETE** validation scripts that duplicate CLI functionality.
+**KEEP** download scripts (useful standalone utilities).
 
 ---
 
-## Current State (Confusing)
+## Current State
 
 ```
 scripts/
-├── download_arc.sh          # ARC - clear from name
-├── validate_download.py     # ARC - NOT clear from name
-└── validate_hf_download.py  # ARC - NOT clear from name
+├── download_arc.sh               # KEEP - useful standalone
+├── validate_download.py          # DELETE - use CLI
+├── validate_hf_download.py       # DELETE - use CLI
+├── validate_isles24_download.py  # DELETE - use CLI
+└── validate_isles24_hf_upload.py # DELETE - use CLI
 ```
 
-Problem: `validate_download.py` and `validate_hf_download.py` are ARC-specific but names suggest generic.
+**Problem**: Validation scripts duplicate CLI functionality, causing maintenance burden.
 
 ---
 
-## Target State (Clear)
+## Target State
 
 ```
 scripts/
-├── arc/
-│   ├── download.sh              # Download ARC from OpenNeuro
-│   ├── validate_download.py     # Validate local ARC download
-│   └── validate_hf_upload.py    # Validate ARC on HuggingFace
-│
-└── isles24/
-    ├── download.sh              # Download ISLES24 from Zenodo
-    ├── validate_download.py     # Validate local ISLES24 download
-    └── validate_hf_upload.py    # Validate ISLES24 on HuggingFace
+├── download_arc.sh      # Download ARC from OpenNeuro
+└── download_isles24.sh  # Download ISLES24 from Zenodo (NEW)
+```
+
+All validation is done via CLI:
+```bash
+bids-hub arc validate /path/to/arc
+bids-hub isles24 validate /path/to/isles24
 ```
 
 ---
 
-## Implementation Steps
+## Why DELETE Instead of Reorganize?
 
-### Step 1: Create Directory Structure
+**Original plan**: Reorganize scripts into `scripts/{arc,isles24}/`
+
+**Upstream recommendation**: DELETE and use CLI instead
+
+**Rationale**:
+1. CLI provides the same functionality
+2. Scripts duplicate module logic → maintenance burden
+3. CLI has better UX (help text, consistent flags)
+4. Reduces code to maintain
+
+---
+
+## Implementation Checklist
+
+### Step 1: Ensure CLI Validation Works
+
+Before deleting scripts, verify CLI works:
 
 ```bash
-mkdir -p scripts/arc scripts/isles24
+bids-hub arc validate data/openneuro/ds004884
+bids-hub isles24 validate data/zenodo/isles24/train
 ```
 
-### Step 2: Move ARC Scripts
+### Step 2: Delete Validation Scripts
 
 ```bash
-mv scripts/download_arc.sh scripts/arc/download.sh
-mv scripts/validate_download.py scripts/arc/validate_download.py
-mv scripts/validate_hf_download.py scripts/arc/validate_hf_upload.py
+rm scripts/validate_download.py
+rm scripts/validate_hf_download.py
+rm scripts/validate_isles24_download.py
+rm scripts/validate_isles24_hf_upload.py
 ```
 
-### Step 3: Update ARC Script Internals
-
-**`scripts/arc/download.sh`**
-- No changes needed (already ARC-specific)
-
-**`scripts/arc/validate_download.py`**
-- Update shebang/docstring to clarify ARC
-- Import path unchanged (module handles it)
-
-**`scripts/arc/validate_hf_upload.py`**
-- Rename from `validate_hf_download.py` → `validate_hf_upload.py` (clearer)
-- Update docstring
-
-### Step 4: Create ISLES24 Scripts
-
-**`scripts/isles24/download.sh`**
+### Step 3: Create ISLES24 Download Script
 
 ```bash
 #!/usr/bin/env bash
+# scripts/download_isles24.sh
 # Download ISLES24 from Zenodo
-# Requires: curl, 7z (p7zip or p7zip-full)
+# Requires: curl, 7z (p7zip)
 #
 # Usage:
-#   ./scripts/isles24/download.sh [target_dir]
-#
-# Default target: data/zenodo/isles24
+#   ./scripts/download_isles24.sh [target_dir]
 
 set -euo pipefail
 
@@ -96,108 +101,35 @@ echo "Source: Zenodo record ${ZENODO_RECORD}"
 echo "Target: ${TARGET_DIR}"
 echo ""
 
-# Create target directory
 mkdir -p "${TARGET_DIR}"
 
-# Download with resume support
 echo "Downloading train.7z (~99GB)..."
 curl -L -C - -o "${TARGET_DIR}/train.7z" "${ZENODO_URL}"
 
-# Extract
 echo "Extracting..."
 7z x "${TARGET_DIR}/train.7z" -o"${TARGET_DIR}/" -y
 
 echo ""
 echo "=== Download Complete ==="
 echo "Validate with:"
-echo "  uv run arc-bids isles24 validate ${TARGET_DIR}/train"
+echo "  bids-hub isles24 validate ${TARGET_DIR}/train"
 ```
 
-**`scripts/isles24/validate_download.py`**
+### Step 4: Update Documentation
 
-```python
-#!/usr/bin/env python3
-"""Validate ISLES24 dataset download before HuggingFace upload."""
+Update docs to use CLI instead of scripts:
 
-import sys
-from pathlib import Path
-
-from arc_bids.validation import validate_isles24_download
-
-def main() -> int:
-    if len(sys.argv) < 2:
-        print("Usage: python scripts/isles24/validate_download.py <bids_root>")
-        return 1
-
-    bids_root = Path(sys.argv[1])
-    result = validate_isles24_download(bids_root)
-    print(result.summary())
-
-    return 0 if result.all_passed else 1
-
-if __name__ == "__main__":
-    sys.exit(main())
-```
-
-**`scripts/isles24/validate_hf_upload.py`**
-
-```python
-#!/usr/bin/env python3
-"""Validate ISLES24 dataset on HuggingFace after upload.
-
-Performs round-trip validation:
-1. Load from HuggingFace
-2. Check row count
-3. Spot-check NIfTI integrity
-"""
-
-import sys
-from datasets import load_dataset
-
-HF_REPO = "hugging-science/isles24-stroke"
-EXPECTED_SUBJECTS = 149
-
-def main() -> int:
-    print(f"Loading {HF_REPO}...")
-    ds = load_dataset(HF_REPO, split="train")
-
-    # Check count
-    actual = len(ds)
-    if actual != EXPECTED_SUBJECTS:
-        print(f"ERROR: Expected {EXPECTED_SUBJECTS} subjects, got {actual}")
-        return 1
-
-    print(f"Subject count: {actual} ✓")
-
-    # Spot check first row
-    example = ds[0]
-    required_keys = ["subject_id", "ncct", "dwi", "lesion_mask"]
-    for key in required_keys:
-        if key not in example:
-            print(f"ERROR: Missing key {key}")
-            return 1
-        if example[key] is None:
-            print(f"WARNING: {key} is None for first subject")
-
-    print("Spot check passed ✓")
-    print("Validation complete!")
-    return 0
-
-if __name__ == "__main__":
-    sys.exit(main())
-```
-
-### Step 5: Make Scripts Executable
-
+**Old:**
 ```bash
-chmod +x scripts/arc/download.sh
-chmod +x scripts/isles24/download.sh
+python scripts/validate_download.py data/openneuro/ds004884
 ```
 
-### Step 6: Update Documentation
+**New:**
+```bash
+bids-hub arc validate data/openneuro/ds004884
+```
 
-Update any docs that reference old script paths:
-- `docs/tutorials/first-upload.md`
+Files to update:
 - `docs/how-to/validate-before-upload.md`
 - `CLAUDE.md`
 - `README.md`
@@ -206,17 +138,15 @@ Update any docs that reference old script paths:
 
 ## Success Criteria
 
-- [ ] `scripts/arc/download.sh` works
-- [ ] `scripts/arc/validate_download.py` works
-- [ ] `scripts/arc/validate_hf_upload.py` works
-- [ ] `scripts/isles24/download.sh` works
-- [ ] `scripts/isles24/validate_download.py` works
-- [ ] `scripts/isles24/validate_hf_upload.py` works
-- [ ] Old script paths removed
-- [ ] Docs updated
+- [ ] `bids-hub arc validate` works
+- [ ] `bids-hub isles24 validate` works
+- [ ] Validation scripts deleted
+- [ ] `scripts/download_arc.sh` still works
+- [ ] `scripts/download_isles24.sh` created and works
+- [ ] Docs updated to use CLI
 
 ---
 
 ## Next Phase
 
-After scripts reorganization → Phase 04: SRC Reorganization
+After scripts cleanup → Phase 04: SRC Reorganization
