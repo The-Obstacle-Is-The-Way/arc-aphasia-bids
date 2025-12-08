@@ -1,7 +1,7 @@
 # Tutorial: Upload ARC Dataset
 
 > **Time**: 30 minutes (excluding upload time)
-> **Prerequisites**: Python 3.11+, uv, HuggingFace account
+> **Prerequisites**: Python 3.10+, uv, HuggingFace account
 
 This tutorial walks you through uploading the **ARC (Aphasia Recovery Cohort)** dataset to HuggingFace Hub.
 

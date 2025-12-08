@@ -1,7 +1,7 @@
 # Tutorial: Upload ISLES24 Dataset
 
 > **Time**: 20 minutes (excluding upload time)
-> **Prerequisites**: Python 3.11+, uv, HuggingFace account
+> **Prerequisites**: Python 3.10+, uv, HuggingFace account
 
 This tutorial walks you through uploading the **ISLES 2024 (Ischemic Stroke Lesion Segmentation)** dataset to HuggingFace Hub.
 
