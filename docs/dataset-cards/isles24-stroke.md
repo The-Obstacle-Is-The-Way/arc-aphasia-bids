@@ -63,13 +63,15 @@ Multi-center longitudinal multimodal acute ischemic stroke training dataset from
 
 ### Clinical Variables
 
-Clinical variables are sourced from the `phenotype/` directory and `clinical_data-description.xlsx`:
+Clinical variables are extracted from per-subject XLSX files in the `phenotype/` directory:
 
-| Variable | Description |
-|----------|-------------|
-| `nihss_admission` | NIH Stroke Scale score at admission |
-| `mrs_3month` | Modified Rankin Scale at 3 months |
-| Demographics | Age, sex, patient history |
+| Variable | Source File | Description |
+|----------|-------------|-------------|
+| `age` | demographic_baseline.xlsx | Patient age at admission |
+| `sex` | demographic_baseline.xlsx | Patient sex (M/F) |
+| `nihss_admission` | demographic_baseline.xlsx | NIH Stroke Scale score at admission |
+| `mrs_admission` | demographic_baseline.xlsx | Modified Rankin Scale at admission |
+| `mrs_3month` | outcome.xlsx | Modified Rankin Scale at 3 months (primary outcome) |
 
 ## Usage
 
@@ -84,7 +86,8 @@ print(example["subject_id"])      # "sub-stroke0001"
 print(example["ncct"])            # Non-contrast CT array
 print(example["dwi"])             # Diffusion-weighted MRI
 print(example["lesion_mask"])     # Ground truth segmentation
-print(example["nihss_admission"]) # Stroke severity score
+print(example["nihss_admission"]) # NIH Stroke Scale at admission
+print(example["mrs_3month"])      # Modified Rankin Scale at 3 months
 ```
 
 ## Data Organization

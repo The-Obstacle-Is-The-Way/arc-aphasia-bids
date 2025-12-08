@@ -86,6 +86,10 @@ def _load_phenotype_data(phenotype_dir: Path, subject_id: str) -> dict[str, Any]
     The phenotype directory structure is:
     phenotype/sub-strokeXXXX/ses-01/  and  phenotype/sub-strokeXXXX/ses-02/
 
+    Zenodo v7 has two files per subject:
+    - ses-01/*_demographic_baseline.xlsx: Age, Sex, NIHSS at admission, mRS at admission
+    - ses-02/*_outcome.xlsx: mRS 3 months
+
     Args:
         phenotype_dir: Path to the phenotype directory.
         subject_id: Subject ID (e.g., "sub-stroke0001").
@@ -93,46 +97,52 @@ def _load_phenotype_data(phenotype_dir: Path, subject_id: str) -> dict[str, Any]
     Returns:
         Dictionary with parsed phenotype values.
     """
+    # EXACT column name mapping based on Zenodo v7 SSOT
+    # demographic_baseline.xlsx columns: Age, Sex, NIHSS at admission, mRS at admission
+    # outcome.xlsx columns: mRS 3 months
+    COLUMN_MAP = {
+        "Age": "age",
+        "Sex": "sex",
+        "NIHSS at admission": "nihss_admission",
+        "mRS at admission": "mrs_admission",
+        "mRS 3 months": "mrs_3month",
+    }
+
     meta: dict[str, Any] = {
         "age": None,
         "sex": None,
         "nihss_admission": None,
+        "mrs_admission": None,
         "mrs_3month": None,
-        "thrombolysis": None,
-        "thrombectomy": None,
     }
 
     subject_pheno_dir = phenotype_dir / subject_id
     if not subject_pheno_dir.exists():
         return meta
 
-    # Look for CSV files in ses-01 and ses-02
+    # Look for XLSX files in ses-01 and ses-02 (Zenodo v7 uses xlsx, not csv)
     for ses_dir in [subject_pheno_dir / "ses-01", subject_pheno_dir / "ses-02"]:
         if not ses_dir.exists():
             continue
-        for csv_file in ses_dir.glob("*.csv"):
+        for xlsx_file in ses_dir.glob("*.xlsx"):
             try:
-                df = pd.read_csv(csv_file)
+                df = pd.read_excel(xlsx_file)
                 if df.empty:
                     continue
                 row = df.iloc[0]
-                # Try to extract known columns (flexible matching)
+                # Use EXACT column name matching (no substring matching!)
                 for col in df.columns:
-                    col_lower = col.lower()
-                    if "age" in col_lower and meta["age"] is None:
-                        meta["age"] = float(row[col]) if pd.notna(row[col]) else None
-                    elif "sex" in col_lower and meta["sex"] is None:
-                        meta["sex"] = str(row[col]) if pd.notna(row[col]) else None
-                    elif "nihss" in col_lower and meta["nihss_admission"] is None:
-                        meta["nihss_admission"] = float(row[col]) if pd.notna(row[col]) else None
-                    elif "mrs" in col_lower and meta["mrs_3month"] is None:
-                        meta["mrs_3month"] = float(row[col]) if pd.notna(row[col]) else None
-                    elif "thrombolysis" in col_lower and meta["thrombolysis"] is None:
-                        meta["thrombolysis"] = str(row[col]) if pd.notna(row[col]) else None
-                    elif "thrombectomy" in col_lower and meta["thrombectomy"] is None:
-                        meta["thrombectomy"] = str(row[col]) if pd.notna(row[col]) else None
+                    if col in COLUMN_MAP:
+                        field_name = COLUMN_MAP[col]
+                        if meta[field_name] is None:
+                            val = row[col]
+                            if pd.notna(val):
+                                if field_name == "sex":
+                                    meta[field_name] = str(val)
+                                else:
+                                    meta[field_name] = float(val)
             except Exception as e:
-                logger.debug("Error reading %s: %s", csv_file, e)
+                logger.debug("Error reading %s: %s", xlsx_file, e)
                 continue
 
     return meta
@@ -237,13 +247,12 @@ def build_isles24_file_table(bids_root: Path) -> pd.DataFrame:
             "lesion_mask": lesion_mask,
             "lvo_mask": lvo_mask,
             "cow_segmentation": cow_seg,
-            # Metadata
+            # Metadata (from phenotype xlsx files)
             "age": meta.get("age"),
             "sex": meta.get("sex"),
             "nihss_admission": meta.get("nihss_admission"),
+            "mrs_admission": meta.get("mrs_admission"),
             "mrs_3month": meta.get("mrs_3month"),
-            "thrombolysis": meta.get("thrombolysis"),
-            "thrombectomy": meta.get("thrombectomy"),
         }
         rows.append(row)
 
@@ -273,13 +282,12 @@ def get_isles24_features() -> Features:
             "lesion_mask": Nifti(),
             "lvo_mask": Nifti(),
             "cow_segmentation": Nifti(),
-            # Metadata
+            # Metadata (from phenotype xlsx files)
             "age": Value("float32"),
             "sex": Value("string"),
             "nihss_admission": Value("float32"),
+            "mrs_admission": Value("float32"),
             "mrs_3month": Value("float32"),
-            "thrombolysis": Value("string"),
-            "thrombectomy": Value("string"),
         }
     )
 
