@@ -106,7 +106,8 @@ def main() -> int:
 
     for idx in tqdm(sample_indices, desc="Hashing"):
         row = ds[idx]
-        subject_id = str(row["subject_id"])
+        # Extract scalar from Arrow ChunkedArray (not str() which returns array repr)
+        subject_id = row["subject_id"].to_pylist()[0]
 
         # Find matching row in original table
         filtered = original_table[original_table["subject_id"] == subject_id]
@@ -117,7 +118,8 @@ def main() -> int:
 
         # Validate each modality
         for modality in MODALITIES_TO_CHECK:
-            hf_data = row[modality].as_py()
+            # Extract scalar from Arrow ChunkedArray (ChunkedArray has no .as_py())
+            hf_data = row[modality].to_pylist()[0]
             orig_path = original_row[modality]
 
             # Skip if either side is missing

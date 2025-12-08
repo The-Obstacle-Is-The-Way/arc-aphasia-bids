@@ -111,8 +111,9 @@ def main() -> int:
 
     for idx in tqdm(sample_indices, desc="Hashing"):
         row = ds[idx]
-        subject_id = str(row["subject_id"])
-        session_id = str(row["session_id"])
+        # Extract scalars from Arrow ChunkedArray (not str() which returns array repr)
+        subject_id = row["subject_id"].to_pylist()[0]
+        session_id = row["session_id"].to_pylist()[0]
 
         # Defensive check: ensure we find the matching row
         filtered = original_table[
@@ -125,7 +126,8 @@ def main() -> int:
         original_row = filtered.iloc[0]
 
         # Validate T1w (single file)
-        t1w_struct = row["t1w"].as_py()
+        # Extract scalar from Arrow ChunkedArray (ChunkedArray has no .as_py())
+        t1w_struct = row["t1w"].to_pylist()[0]
         if t1w_struct and pd.notna(original_row["t1w"]) and "bytes" in t1w_struct:
             dl_hash = hashlib.sha256(t1w_struct["bytes"]).hexdigest()
             with open(original_row["t1w"], "rb") as f:
@@ -137,7 +139,8 @@ def main() -> int:
             checked += 1
 
         # Validate BOLD (first run of list)
-        bold_list = row["bold"].as_py()
+        # Extract scalar from Arrow ChunkedArray (ChunkedArray has no .as_py())
+        bold_list = row["bold"].to_pylist()[0]
         if bold_list and original_row["bold"]:
             dl_bold = bold_list[0]
             orig_bold_path = original_row["bold"][0]
