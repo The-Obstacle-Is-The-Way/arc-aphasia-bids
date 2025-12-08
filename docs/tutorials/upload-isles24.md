@@ -29,6 +29,7 @@ uv run bids-hub isles24 validate data/zenodo/isles24/train
 ```
 
 Expected output:
+
 ```text
 Validation Results for: data/zenodo/isles24/train
 ============================================================

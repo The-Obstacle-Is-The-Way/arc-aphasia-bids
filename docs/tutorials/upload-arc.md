@@ -27,6 +27,7 @@ uv run bids-hub arc validate data/openneuro/ds004884
 ```
 
 Expected output:
+
 ```text
 Validation Results for: data/openneuro/ds004884
 ============================================================
