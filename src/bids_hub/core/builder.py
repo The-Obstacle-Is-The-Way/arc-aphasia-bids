@@ -1,47 +1,9 @@
-"""
-Core module for BIDS → Hugging Face Dataset conversion.
+"""Core build and push functions."""
 
-This module provides generic, dataset-agnostic utilities for:
-- Building HF Datasets from pandas DataFrames containing NIfTI file paths
-- Pushing datasets to the Hugging Face Hub
-
-The typical workflow for a specific BIDS dataset (e.g., ARC, SOOP) is:
-1. Implement a `build_*_file_table()` function that walks the BIDS directory
-   and returns a pandas DataFrame with one row per subject/session
-2. Define a `get_*_features()` function that returns the HF Features schema
-3. Call `build_hf_dataset()` with the file table and features
-4. Optionally push to Hub with `push_dataset_to_hub()`
-
-Example usage:
-    ```python
-    from bids_hub.core import DatasetBuilderConfig, build_hf_dataset
-    from datasets import Features, Nifti, Value
-
-    # Your file table with paths to NIfTI files
-    file_table = pd.DataFrame({
-        "subject_id": ["sub-001", "sub-002"],
-        "t1w": ["/path/to/sub-001_T1w.nii.gz", "/path/to/sub-002_T1w.nii.gz"],
-        "age": [25.0, 30.0],
-    })
-
-    features = Features({
-        "subject_id": Value("string"),
-        "t1w": Nifti(),
-        "age": Value("float32"),
-    })
-
-    config = DatasetBuilderConfig(
-        bids_root=Path("/path/to/bids"),
-        hf_repo_id="user/my-dataset",
-    )
-
-    ds = build_hf_dataset(config, file_table, features)
-    ```
-"""
+from __future__ import annotations
 
 import logging
 import tempfile
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -52,25 +14,9 @@ from datasets.table import embed_table_storage
 from huggingface_hub import HfApi
 from tqdm.auto import tqdm
 
+from .config import DatasetBuilderConfig
+
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class DatasetBuilderConfig:
-    """
-    Configuration for building a Hugging Face Dataset from BIDS data.
-
-    Attributes:
-        bids_root: Path to the root of the BIDS dataset directory.
-        hf_repo_id: Hugging Face Hub repository ID (e.g., "username/dataset-name").
-        split: Optional split name (e.g., "train", "test"). If None, no split is assigned.
-        dry_run: If True, skip pushing to Hub (useful for testing).
-    """
-
-    bids_root: Path
-    hf_repo_id: str
-    split: str | None = None
-    dry_run: bool = False
 
 
 def validate_file_table_columns(

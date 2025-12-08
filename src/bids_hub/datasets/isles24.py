@@ -39,6 +39,8 @@ train/
 ```
 """
 
+from __future__ import annotations
+
 import logging
 from pathlib import Path
 from typing import Any
@@ -46,37 +48,10 @@ from typing import Any
 import pandas as pd
 from datasets import Features, Nifti, Value
 
-from .core import DatasetBuilderConfig, build_hf_dataset, push_dataset_to_hub
+from ..core import DatasetBuilderConfig, build_hf_dataset, push_dataset_to_hub
+from ..core.utils import find_single_nifti
 
 logger = logging.getLogger(__name__)
-
-
-def _find_single_nifti(search_dir: Path, pattern: str, required: bool = False) -> str | None:
-    """
-    Find a single NIfTI file matching a pattern in a directory.
-
-    Args:
-        search_dir: Directory to search.
-        pattern: Glob pattern (e.g., "*_space-ncct_tmax.nii.gz").
-        required: If True, log a warning if not found.
-
-    Returns:
-        Absolute path to the file, or None if not found.
-    """
-    if not search_dir.exists():
-        if required:
-            logger.debug("Missing directory: %s", search_dir)
-        return None
-
-    matches = list(search_dir.glob(pattern))
-    if not matches:
-        if required:
-            logger.debug("No file matching %s in %s", pattern, search_dir)
-        return None
-
-    # Sort to ensure determinism if multiple matches
-    matches.sort(key=lambda p: p.name)
-    return str(matches[0].resolve())
 
 
 def _load_phenotype_data(phenotype_dir: Path, subject_id: str) -> dict[str, Any]:
@@ -189,9 +164,9 @@ def build_isles24_file_table(bids_root: Path) -> pd.DataFrame:
         ses01_raw = subject_dir / "ses-01"
 
         # Raw CTs - files are directly in ses-01/ (NOT in ct/, cta/, ctp/ subdirs)
-        ncct = _find_single_nifti(ses01_raw, "*_ncct.nii.gz")
-        cta = _find_single_nifti(ses01_raw, "*_cta.nii.gz")
-        ctp = _find_single_nifti(ses01_raw, "*_ctp.nii.gz")
+        ncct = find_single_nifti(ses01_raw, "*_ncct.nii.gz")
+        cta = find_single_nifti(ses01_raw, "*_cta.nii.gz")
+        ctp = find_single_nifti(ses01_raw, "*_ctp.nii.gz")
 
         # Note: Raw perfusion maps exist in raw_data/sub-X/ses-01/perfusion-maps/
         # but we prefer the derivatives (space-ncct registered) versions below
@@ -205,26 +180,26 @@ def build_isles24_file_table(bids_root: Path) -> pd.DataFrame:
 
         # Perfusion Maps (space-ncct registered)
         perf_dir = ses01_deriv / "perfusion-maps"
-        tmax = _find_single_nifti(perf_dir, "*_space-ncct_tmax.nii.gz")
-        mtt = _find_single_nifti(perf_dir, "*_space-ncct_mtt.nii.gz")
-        cbf = _find_single_nifti(perf_dir, "*_space-ncct_cbf.nii.gz")
-        cbv = _find_single_nifti(perf_dir, "*_space-ncct_cbv.nii.gz")
+        tmax = find_single_nifti(perf_dir, "*_space-ncct_tmax.nii.gz")
+        mtt = find_single_nifti(perf_dir, "*_space-ncct_mtt.nii.gz")
+        cbf = find_single_nifti(perf_dir, "*_space-ncct_cbf.nii.gz")
+        cbv = find_single_nifti(perf_dir, "*_space-ncct_cbv.nii.gz")
 
         # CTA and CTP in NCCT space
-        cta_deriv = _find_single_nifti(ses01_deriv, "*_space-ncct_cta.nii.gz")
-        ctp_deriv = _find_single_nifti(ses01_deriv, "*_space-ncct_ctp.nii.gz")
+        cta_deriv = find_single_nifti(ses01_deriv, "*_space-ncct_cta.nii.gz")
+        ctp_deriv = find_single_nifti(ses01_deriv, "*_space-ncct_ctp.nii.gz")
 
         # LVO and CoW masks
-        lvo_mask = _find_single_nifti(ses01_deriv, "*_space-ncct_lvo-msk.nii.gz")
-        cow_seg = _find_single_nifti(ses01_deriv, "*_space-ncct_cow-msk.nii.gz")
+        lvo_mask = find_single_nifti(ses01_deriv, "*_space-ncct_lvo-msk.nii.gz")
+        cow_seg = find_single_nifti(ses01_deriv, "*_space-ncct_cow-msk.nii.gz")
 
         # --- SESSION 02: FOLLOW-UP (MRI) ---
         # Structure: derivatives/sub-X/ses-02/
         ses02_deriv = deriv_subject_dir / "ses-02"
 
-        dwi = _find_single_nifti(ses02_deriv, "*_space-ncct_dwi.nii.gz")
-        adc = _find_single_nifti(ses02_deriv, "*_space-ncct_adc.nii.gz")
-        lesion_mask = _find_single_nifti(ses02_deriv, "*_space-ncct_lesion-msk.nii.gz")
+        dwi = find_single_nifti(ses02_deriv, "*_space-ncct_dwi.nii.gz")
+        adc = find_single_nifti(ses02_deriv, "*_space-ncct_adc.nii.gz")
+        lesion_mask = find_single_nifti(ses02_deriv, "*_space-ncct_lesion-msk.nii.gz")
 
         # --- METADATA ---
         meta = _load_phenotype_data(phenotype_root, subject_id)

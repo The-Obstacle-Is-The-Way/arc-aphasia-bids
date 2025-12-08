@@ -23,49 +23,18 @@ The ARC dataset contains:
 - Demographic and clinical metadata (age, sex, WAB-AQ scores)
 """
 
+from __future__ import annotations
+
 import logging
 from pathlib import Path
 
 import pandas as pd
 from datasets import Features, Nifti, Sequence, Value
 
-from .core import DatasetBuilderConfig, build_hf_dataset, push_dataset_to_hub
+from ..core import DatasetBuilderConfig, build_hf_dataset, push_dataset_to_hub
+from ..core.utils import find_all_niftis, find_single_nifti
 
 logger = logging.getLogger(__name__)
-
-
-def _find_niftis_in_session(session_dir: Path, pattern: str) -> list[str]:
-    """Find ALL NIfTI files matching a pattern within a session directory.
-
-    Args:
-        session_dir: Session directory (e.g., sub-M2001/ses-1).
-        pattern: Glob pattern to match (e.g., "*_bold.nii.gz").
-
-    Returns:
-        List of absolute paths to all matching files, sorted by filename.
-        Empty list if no matches found.
-    """
-    matches = list(session_dir.rglob(pattern))
-    # Sort by filename to ensure consistent ordering (run-01 before run-02)
-    matches.sort(key=lambda p: p.name)
-    return [str(p.resolve()) for p in matches]
-
-
-def _find_single_nifti_in_session(session_dir: Path, pattern: str) -> str | None:
-    """Find a single NIfTI file matching a pattern (for modalities with one file per session).
-
-    Args:
-        session_dir: Session directory (e.g., sub-M2001/ses-1).
-        pattern: Glob pattern to match (e.g., "*_T1w.nii.gz").
-
-    Returns:
-        Absolute path to the first matching file (sorted by name), or None if not found.
-    """
-    matches = list(session_dir.rglob(pattern))
-    if matches:
-        matches.sort(key=lambda p: p.name)
-        return str(matches[0].resolve())
-    return None
 
 
 def build_arc_file_table(bids_root: Path) -> pd.DataFrame:
@@ -163,26 +132,23 @@ def build_arc_file_table(bids_root: Path) -> pd.DataFrame:
             session_id = session_dir.name  # e.g., "ses-1"
 
             # Find structural modalities in anat/ (single file per session)
-            t1w_path = _find_single_nifti_in_session(session_dir / "anat", "*_T1w.nii.gz")
-            t2w_path = _find_single_nifti_in_session(session_dir / "anat", "*_T2w.nii.gz")
-            flair_path = _find_single_nifti_in_session(session_dir / "anat", "*_FLAIR.nii.gz")
+            t1w_path = find_single_nifti(session_dir / "anat", "*_T1w.nii.gz")
+            t2w_path = find_single_nifti(session_dir / "anat", "*_T2w.nii.gz")
+            flair_path = find_single_nifti(session_dir / "anat", "*_FLAIR.nii.gz")
 
             # Find functional modalities in func/ (ALL runs)
-            bold_paths = _find_niftis_in_session(session_dir / "func", "*_bold.nii.gz")
+            bold_paths = find_all_niftis(session_dir / "func", "*_bold.nii.gz")
 
             # Find diffusion modalities in dwi/ (ALL runs)
-            dwi_paths = _find_niftis_in_session(session_dir / "dwi", "*_dwi.nii.gz")
-            sbref_paths = _find_niftis_in_session(session_dir / "dwi", "*_sbref.nii.gz")
+            dwi_paths = find_all_niftis(session_dir / "dwi", "*_dwi.nii.gz")
+            sbref_paths = find_all_niftis(session_dir / "dwi", "*_sbref.nii.gz")
 
             # Find lesion mask in derivatives for this session (single file)
+            # Note: find_single_nifti already handles missing directories
             lesion_session_dir = (
                 bids_root / "derivatives" / "lesion_masks" / subject_id / session_id
             )
-            lesion_path = (
-                _find_single_nifti_in_session(lesion_session_dir, "*_desc-lesion_mask.nii.gz")
-                if lesion_session_dir.exists()
-                else None
-            )
+            lesion_path = find_single_nifti(lesion_session_dir, "*_desc-lesion_mask.nii.gz")
 
             rows.append(
                 {

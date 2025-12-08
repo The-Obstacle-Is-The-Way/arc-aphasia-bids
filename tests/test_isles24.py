@@ -16,12 +16,12 @@ import pandas as pd
 import pytest
 from datasets import Features, Nifti, Sequence
 
-from bids_hub.core import DatasetBuilderConfig
-from bids_hub.isles24 import (
+from bids_hub import (
     build_and_push_isles24,
     build_isles24_file_table,
     get_isles24_features,
 )
+from bids_hub.core import DatasetBuilderConfig
 
 
 def _create_minimal_nifti(path: Path) -> None:
@@ -253,8 +253,8 @@ class TestBuildAndPushISLES24:
         )
 
         with (
-            patch("bids_hub.isles24.build_hf_dataset") as mock_build,
-            patch("bids_hub.isles24.push_dataset_to_hub") as mock_push,
+            patch("bids_hub.datasets.isles24.build_hf_dataset") as mock_build,
+            patch("bids_hub.datasets.isles24.push_dataset_to_hub") as mock_push,
         ):
             mock_build.return_value = MagicMock()
             build_and_push_isles24(config)

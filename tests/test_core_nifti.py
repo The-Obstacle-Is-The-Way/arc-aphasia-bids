@@ -384,9 +384,9 @@ class TestPushDatasetToHub:
 
         # Mock HfApi and pq.write_table
         with (
-            patch("bids_hub.core.HfApi") as MockApi,
-            patch("bids_hub.core.embed_table_storage") as mock_embed,
-            patch("bids_hub.core.pq.write_table") as mock_write,
+            patch("bids_hub.core.builder.HfApi") as MockApi,
+            patch("bids_hub.core.builder.embed_table_storage") as mock_embed,
+            patch("bids_hub.core.builder.pq.write_table") as mock_write,
         ):
             mock_api_instance = MockApi.return_value
             # embed_table_storage returns a simple table

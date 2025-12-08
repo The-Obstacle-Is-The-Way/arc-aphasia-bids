@@ -273,12 +273,12 @@ from bids_hub import validate_arc_download
 
 ## Success Criteria
 
-- [ ] All imports in `__init__.py` work
-- [ ] `bids-hub arc build` CLI works
-- [ ] `bids-hub isles24 build` CLI works
-- [ ] All tests pass
-- [ ] mypy passes
-- [ ] ruff passes
+- [x] All imports in `__init__.py` work
+- [x] `bids-hub arc build` CLI works
+- [x] `bids-hub isles24 build` CLI works
+- [x] All tests pass
+- [x] mypy passes
+- [x] ruff passes
 
 ---
 
