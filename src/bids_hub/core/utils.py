@@ -6,13 +6,15 @@ from pathlib import Path
 
 
 def find_single_nifti(search_dir: Path, pattern: str) -> str | None:
-    """Find a single NIfTI file matching pattern."""
+    """Find a single NIfTI file matching pattern.
+
+    Returns the absolute path if exactly one match is found; otherwise None.
+    """
     if not search_dir.is_dir():
         return None
-    matches = list(search_dir.rglob(pattern))
-    if not matches:
+    matches = sorted(search_dir.rglob(pattern), key=lambda p: p.name)
+    if len(matches) != 1:
         return None
-    matches.sort(key=lambda p: p.name)
     return str(matches[0].resolve())
 
 

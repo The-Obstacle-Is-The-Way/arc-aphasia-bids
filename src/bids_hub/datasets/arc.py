@@ -146,7 +146,7 @@ def build_arc_file_table(bids_root: Path) -> pd.DataFrame:
             # Find lesion mask in derivatives for this session (single file)
             # Note: find_single_nifti already handles missing directories
             lesion_session_dir = (
-                bids_root / "derivatives" / "lesion_masks" / subject_id / session_id
+                bids_root / "derivatives" / "lesion_masks" / subject_id / session_id / "anat"
             )
             lesion_path = find_single_nifti(lesion_session_dir, "*_desc-lesion_mask.nii.gz")
 
