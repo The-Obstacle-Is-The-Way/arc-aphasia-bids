@@ -1,5 +1,13 @@
 # bids-hub
 
+> **Note: This repository has been consolidated into [neuroimaging-go-brrrr](https://github.com/The-Obstacle-Is-The-Way/neuroimaging-go-brrrr).**
+>
+> `bids-hub` has been re-vendored and integrated into our unified neuroimaging platform. All active development now continues there. This repository is archived for reference but is **no longer actively maintained**.
+>
+> **New location:** <https://github.com/The-Obstacle-Is-The-Way/neuroimaging-go-brrrr>
+
+---
+
 Upload BIDS neuroimaging datasets to HuggingFace Hub.
 
 ## Supported Datasets
